@@ -1,0 +1,157 @@
+package org.grafana.beyla.instrumentations;
+
+import com.sun.jna.Memory;
+import com.sun.jna.Pointer;
+import net.bytebuddy.agent.builder.AgentBuilder;
+import net.bytebuddy.asm.Advice;
+import net.bytebuddy.description.type.TypeDescription;
+import net.bytebuddy.matcher.ElementMatcher;
+import net.bytebuddy.matcher.ElementMatchers;
+import org.grafana.beyla.Agent;
+import org.grafana.beyla.ebpf.IOCTLPacket;
+import org.grafana.beyla.ebpf.OperationType;
+import org.grafana.beyla.instrumentations.util.ByteBufferExtractor;
+
+import javax.net.ssl.SSLEngine;
+import javax.net.ssl.SSLEngineResult;
+import java.nio.ByteBuffer;
+
+public class SSLEngineInst {
+    public static ElementMatcher<? super TypeDescription> type() {
+        return ElementMatchers.is(SSLEngine.class);
+    }
+
+    public static AgentBuilder.Transformer transformer() {
+        return (builder, type, classLoader, module, protectionDomain) ->
+                builder
+                        .visit(Advice.to(UnwrapAdvice.class)
+                                .on(ElementMatchers
+                                        .named("unwrap")
+                                        .and(ElementMatchers.takesArguments(2))
+                                        .and(ElementMatchers.takesArgument(1, ByteBuffer.class))
+                                ))
+                        .visit(Advice.to(UnwrapAdviceArray.class)
+                                .on(ElementMatchers
+                                        .named("unwrap")
+                                        .and(ElementMatchers.takesArguments(2))
+                                        .and(ElementMatchers.takesArgument(1, ByteBuffer[].class))
+                                ))
+                        .visit(Advice.to(WrapAdvice.class)
+                                .on(ElementMatchers
+                                        .named("wrap")
+                                        .and(ElementMatchers.takesArguments(2))
+                                        .and(ElementMatchers.takesArgument(0, ByteBuffer.class))
+                                )
+                        )
+                        .visit(Advice.to(WrapAdviceArray.class)
+                                .on(ElementMatchers
+                                        .named("wrap")
+                                        .and(ElementMatchers.takesArguments(2))
+                                        .and(ElementMatchers.takesArgument(0, ByteBuffer[].class))
+                                )
+                        );
+    }
+
+    public static final class UnwrapAdvice {
+        @Advice.OnMethodExit
+        public static void unwrap(
+                @Advice.This final javax.net.ssl.SSLEngine engine,
+                @Advice.Argument(1) final ByteBuffer dst,
+                @Advice.Return SSLEngineResult result) {
+            if (engine.getSession().getId().length == 0) {
+                return;
+            }
+            Connection c = SSLStorage.threadConnection.get();
+
+            if (c == null) {
+                c = SSLStorage.getConnectionForSession(engine.getSession());
+            }
+
+            if (result.bytesProduced() > 0 && dst.limit() >= result.bytesProduced()) {
+                int bufferSize = Math.min(result.bytesProduced(), 1024);
+                byte[] b = new byte[bufferSize];
+                int oldPos = dst.position();
+                dst.position(dst.arrayOffset());
+                dst.get(b, 0, bufferSize);
+                dst.position(oldPos);
+
+                Pointer p = new Memory(IOCTLPacket.packetPrefixSize + b.length);
+                int wOff = IOCTLPacket.writePacketPrefix(p, 0, OperationType.RECEIVE, c, b.length);
+                IOCTLPacket.writePacketBuffer(p, wOff, b);
+                Agent.CLibrary.INSTANCE.ioctl(0, Agent.IOCTL_CMD, Pointer.nativeValue(p));
+            }
+        }
+    }
+
+    public static final class UnwrapAdviceArray {
+        @Advice.OnMethodExit
+        public static void unwrap(
+                @Advice.This final javax.net.ssl.SSLEngine engine,
+                @Advice.Argument(1) final ByteBuffer[] dsts,
+                @Advice.Return SSLEngineResult result) {
+            if (dsts.length == 0 || engine.getSession().getId().length == 0) {
+                return;
+            }
+            Connection c = SSLStorage.threadConnection.get();
+
+            if (c == null) {
+                c = SSLStorage.getConnectionForSession(engine.getSession());
+            }
+
+            if (result.bytesProduced() > 0) {
+                ByteBuffer dstBuffer = ByteBufferExtractor.flattenByteBufferArray(dsts, result.bytesProduced());
+                byte[] b = dstBuffer.array();
+                int len = dstBuffer.limit();
+
+                Pointer p = new Memory(IOCTLPacket.packetPrefixSize + len);
+                int wOff = IOCTLPacket.writePacketPrefix(p, 0, OperationType.RECEIVE, c, len);
+                IOCTLPacket.writePacketBuffer(p, wOff, b);
+                Agent.CLibrary.INSTANCE.ioctl(0, Agent.IOCTL_CMD, Pointer.nativeValue(p));
+            }
+
+        }
+    }
+
+    public static final class WrapAdvice {
+        @Advice.OnMethodExit//(suppress = Throwable.class)
+        public static void wrap(
+                @Advice.This final javax.net.ssl.SSLEngine engine,
+                @Advice.Argument(0) final ByteBuffer src,
+                @Advice.Return SSLEngineResult result) {
+            if (engine.getSession().getId().length == 0) {
+                return;
+            }
+            if (result.bytesConsumed() > 0) {
+                int bufferSize = Math.min(result.bytesConsumed(), 1024);
+                byte[] b = new byte[bufferSize];
+                int oldPos = src.position();
+                src.position(src.arrayOffset());
+                src.get(b, 0, bufferSize);
+                src.position(oldPos);
+
+                SSLStorage.threadBuffer.set(new BytesWithLen(b, bufferSize));
+                SSLStorage.threadSSLSession.set(engine.getSession());
+            }
+        }
+    }
+
+    public static final class WrapAdviceArray {
+        @Advice.OnMethodExit//(suppress = Throwable.class)
+        public static void wrap(
+                @Advice.This final javax.net.ssl.SSLEngine engine,
+                @Advice.Argument(0) final ByteBuffer[] srcs,
+                @Advice.Return SSLEngineResult result) {
+            if (srcs.length == 0 || engine.getSession().getId().length == 0) {
+                return;
+            }
+            if (result.bytesConsumed() > 0) {
+                ByteBuffer dstBuffer = ByteBufferExtractor.flattenByteBufferArray(srcs, result.bytesConsumed());
+                byte[] b = dstBuffer.array();
+                int len = dstBuffer.limit();
+
+                SSLStorage.threadBuffer.set(new BytesWithLen(b, len));
+                SSLStorage.threadSSLSession.set(engine.getSession());
+            }
+        }
+    }
+}
