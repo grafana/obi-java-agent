@@ -1,18 +1,19 @@
-package org.grafana.beyla;
+package io.opentelemetry.obi.java;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.sun.jna.Library;
 import com.sun.jna.Memory;
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
+import io.opentelemetry.obi.java.ebpf.*;
+import io.opentelemetry.obi.java.instrumentations.*;
 import net.bytebuddy.agent.ByteBuddyAgent;
 import net.bytebuddy.agent.builder.AgentBuilder;
 import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.dynamic.ClassFileLocator;
 import net.bytebuddy.dynamic.loading.ClassInjector;
-import org.grafana.beyla.ebpf.*;
-import org.grafana.beyla.instrumentations.*;
-import org.grafana.beyla.instrumentations.util.ByteBufferExtractor;
-import org.grafana.beyla.instrumentations.util.WeakConcurrentMap;
+import io.opentelemetry.obi.java.instrumentations.util.ByteBufferExtractor;
 
 import java.io.File;
 import java.io.IOException;
@@ -27,6 +28,8 @@ import static net.bytebuddy.dynamic.loading.ClassInjector.UsingInstrumentation.T
 
 public class Agent {
     public static int IOCTL_CMD = 0xb311a;
+
+    public static boolean debugOn = false;
 
     public interface CLibrary extends Library {
         CLibrary INSTANCE = Native.load("c", CLibrary.class);
@@ -62,7 +65,8 @@ public class Agent {
             builder = builder
                     .with(AgentBuilder.Listener.StreamWriting.toSystemError().withTransformationsOnly()) // debug
                     .with(AgentBuilder.InstallationListener.StreamWriting.toSystemError()); // debug
-
+            Agent.debugOn = true;
+            SSLStorage.debugOn = true;
         }
 
         return builder;
@@ -75,7 +79,9 @@ public class Agent {
             initClassesThatNeedToBeBootstrapped();
             injectBootstrapClasses(inst);
         } catch (Exception x) {
-            x.printStackTrace();
+            if (Agent.debugOn) {
+                x.printStackTrace();
+            }
         }
 
         builder(agentArgs)
@@ -86,8 +92,6 @@ public class Agent {
                 .transform(SSLEngineInst.transformer())
                 .type(SocketChannelInst.type())
                 .transform(SocketChannelInst.transformer())
-                .type(SSLSessionInst.type())
-                .transform(SSLSessionInst.transformer())
                 .installOn(inst);
     }
 
@@ -113,8 +117,6 @@ public class Agent {
         Class.forName(Connection.class.getName());
         Class.forName(SSLStorage.class.getName());
         Class.forName(ByteBufferExtractor.class.getName());
-        Class.forName(WeakConcurrentMap.class.getName());
-        Class.forName("org.grafana.beyla.instrumentations.util.AbstractWeakConcurrentMap$WeakKey");
 
         // It's hard to predict what classes will this JNA operation use, so we
         // perform one dummy write
@@ -122,10 +124,19 @@ public class Agent {
         Pointer p = new Memory(data.length);
         p.write(0, data, 0, data.length);
         CLibrary.INSTANCE.ioctl(0, IOCTL_CMD, Pointer.nativeValue(p));
+
+        // LRU cache map and some usage to match what we use in the hooks
+        Cache<Object, Object> cache = Caffeine.newBuilder()
+                .maximumSize(1)
+                .build();
+        Integer key = 1;
+        cache.put(key, new Object());
+        cache.getIfPresent(key);
+        cache.invalidate(key);
     }
 
     private static void injectBootstrapClasses(Instrumentation instrumentation) throws IOException {
-        File tempDir = Files.createTempDirectory("beyla-agent").toFile();
+        File tempDir = Files.createTempDirectory("obi-agent").toFile();
         // Delete on exit in case we throw some sort of exception
         tempDir.deleteOnExit();
         Map<TypeDescription, byte[]> typeMap = new java.util.HashMap<>();
@@ -136,7 +147,10 @@ public class Agent {
             for (Class<?> clazz : instrumentation.getAllLoadedClasses()) {
                 if (clazz.getClassLoader() == agentClassLoader) {
                     TypeDescription desc = new TypeDescription.ForLoadedType(clazz);
-                    if (desc.getName().startsWith("com.sun.") || desc.getName().startsWith("org.grafana.")) {
+                    if (desc.getName().startsWith("com.sun.")
+                            || desc.getName().startsWith("io.opentelemetry.obi.")
+                            || desc.getName().startsWith("com.github.benmanes.")
+                    ) {
                         try {
                             byte[] bytes = locator.locate(desc.getName()).resolve();
                             typeMap.put(desc, bytes);

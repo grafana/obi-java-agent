@@ -1,8 +1,8 @@
-package org.grafana.beyla.ebpf;
+package io.opentelemetry.obi.java.ebpf;
 
 import com.sun.jna.Memory;
 import com.sun.jna.Pointer;
-import org.grafana.beyla.instrumentations.Connection;
+import io.opentelemetry.obi.java.instrumentations.Connection;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

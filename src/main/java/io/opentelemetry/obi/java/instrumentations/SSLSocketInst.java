@@ -1,12 +1,12 @@
-package org.grafana.beyla.instrumentations;
+package io.opentelemetry.obi.java.instrumentations;
 
 import net.bytebuddy.agent.builder.AgentBuilder;
 import net.bytebuddy.asm.Advice;
 import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.matcher.ElementMatcher;
 import net.bytebuddy.matcher.ElementMatchers;
-import org.grafana.beyla.ebpf.ProxyInputStream;
-import org.grafana.beyla.ebpf.ProxyOutputStream;
+import io.opentelemetry.obi.java.ebpf.ProxyInputStream;
+import io.opentelemetry.obi.java.ebpf.ProxyOutputStream;
 
 import javax.net.ssl.SSLSocket;
 import java.io.InputStream;

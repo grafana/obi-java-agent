@@ -1,4 +1,4 @@
-package org.grafana.beyla.instrumentations;
+package io.opentelemetry.obi.java.instrumentations;
 
 import com.sun.jna.Memory;
 import com.sun.jna.Pointer;
@@ -7,14 +7,15 @@ import net.bytebuddy.asm.Advice;
 import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.matcher.ElementMatcher;
 import net.bytebuddy.matcher.ElementMatchers;
-import org.grafana.beyla.Agent;
-import org.grafana.beyla.ebpf.IOCTLPacket;
-import org.grafana.beyla.ebpf.OperationType;
-import org.grafana.beyla.instrumentations.util.ByteBufferExtractor;
+import io.opentelemetry.obi.java.Agent;
+import io.opentelemetry.obi.java.ebpf.IOCTLPacket;
+import io.opentelemetry.obi.java.ebpf.OperationType;
+import io.opentelemetry.obi.java.instrumentations.util.ByteBufferExtractor;
 
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLEngineResult;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 public class SSLEngineInst {
     public static ElementMatcher<? super TypeDescription> type() {
@@ -56,15 +57,26 @@ public class SSLEngineInst {
         @Advice.OnMethodExit
         public static void unwrap(
                 @Advice.This final javax.net.ssl.SSLEngine engine,
+                @Advice.Argument(0) final ByteBuffer src,
                 @Advice.Argument(1) final ByteBuffer dst,
                 @Advice.Return SSLEngineResult result) {
-            if (engine.getSession().getId().length == 0) {
-                return;
-            }
-            Connection c = SSLStorage.threadConnection.get();
+            Connection c = SSLStorage.getConnectionForSession(engine);
 
             if (c == null) {
-                c = SSLStorage.getConnectionForSession(engine.getSession());
+                String bufKey = ByteBufferExtractor.bufferKey(src);
+                c = SSLStorage.getConnectionForBuf(bufKey);
+
+                if (c == null) {
+                    if (SSLStorage.debugOn) {
+                        System.out.println("Can't find connection " + engine);
+                    }
+                } else {
+                    SSLStorage.setConnectionForSession(engine, c);
+                }
+            }
+
+            if (engine.getSession().getId().length == 0) {
+                return;
             }
 
             if (result.bytesProduced() > 0 && dst.limit() >= result.bytesProduced()) {
@@ -89,13 +101,24 @@ public class SSLEngineInst {
                 @Advice.This final javax.net.ssl.SSLEngine engine,
                 @Advice.Argument(1) final ByteBuffer[] dsts,
                 @Advice.Return SSLEngineResult result) {
-            if (dsts.length == 0 || engine.getSession().getId().length == 0) {
-                return;
-            }
-            Connection c = SSLStorage.threadConnection.get();
+            Connection c = SSLStorage.getConnectionForSession(engine);
 
             if (c == null) {
-                c = SSLStorage.getConnectionForSession(engine.getSession());
+                ByteBuffer dstBuffer = ByteBufferExtractor.flattenByteBufferArray(dsts, ByteBufferExtractor.MAX_KEY_SIZE);
+                String bufKey = Arrays.toString(dstBuffer.array());
+                c = SSLStorage.getConnectionForBuf(bufKey);
+
+                if (c == null) {
+                    if (SSLStorage.debugOn) {
+                        System.out.println("Can't find connection for dst array");
+                    }
+                } else {
+                    SSLStorage.setConnectionForSession(engine, c);
+                }
+            }
+
+            if (dsts.length == 0 || engine.getSession().getId().length == 0) {
+                return;
             }
 
             if (result.bytesProduced() > 0) {
@@ -108,7 +131,6 @@ public class SSLEngineInst {
                 IOCTLPacket.writePacketBuffer(p, wOff, b);
                 Agent.CLibrary.INSTANCE.ioctl(0, Agent.IOCTL_CMD, Pointer.nativeValue(p));
             }
-
         }
     }
 
@@ -117,6 +139,7 @@ public class SSLEngineInst {
         public static void wrap(
                 @Advice.This final javax.net.ssl.SSLEngine engine,
                 @Advice.Argument(0) final ByteBuffer src,
+                @Advice.Argument(1) final ByteBuffer dst,
                 @Advice.Return SSLEngineResult result) {
             if (engine.getSession().getId().length == 0) {
                 return;
@@ -129,8 +152,8 @@ public class SSLEngineInst {
                 src.get(b, 0, bufferSize);
                 src.position(oldPos);
 
-                SSLStorage.threadBuffer.set(new BytesWithLen(b, bufferSize));
-                SSLStorage.threadSSLSession.set(engine.getSession());
+                String encrypted = ByteBufferExtractor.bufferKey(dst);
+                SSLStorage.setBufferMapping(encrypted, new BytesWithLen(b, bufferSize));
             }
         }
     }
@@ -140,6 +163,7 @@ public class SSLEngineInst {
         public static void wrap(
                 @Advice.This final javax.net.ssl.SSLEngine engine,
                 @Advice.Argument(0) final ByteBuffer[] srcs,
+                @Advice.Argument(1) final ByteBuffer dst,
                 @Advice.Return SSLEngineResult result) {
             if (srcs.length == 0 || engine.getSession().getId().length == 0) {
                 return;
@@ -149,8 +173,8 @@ public class SSLEngineInst {
                 byte[] b = dstBuffer.array();
                 int len = dstBuffer.limit();
 
-                SSLStorage.threadBuffer.set(new BytesWithLen(b, len));
-                SSLStorage.threadSSLSession.set(engine.getSession());
+                String encrypted = ByteBufferExtractor.bufferKey(dst);
+                SSLStorage.setBufferMapping(encrypted, new BytesWithLen(b, len));
             }
         }
     }

@@ -1,9 +1,11 @@
-package org.grafana.beyla.instrumentations.util;
+package io.opentelemetry.obi.java.instrumentations.util;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 public class ByteBufferExtractor {
     public static final int MAX_SIZE = 1024;
+    public static final int MAX_KEY_SIZE = 64;
 
     public static ByteBuffer flattenByteBufferArray(ByteBuffer[] dsts, int len) {
         ByteBuffer dstBuffer = ByteBuffer.allocate(Math.min(len, MAX_SIZE));
@@ -27,5 +29,20 @@ public class ByteBufferExtractor {
         }
 
         return dstBuffer;
+    }
+
+    public static String bufferKey(ByteBuffer buf) {
+        int oldPosition = buf.position();
+        int oldLimit = buf.limit();
+
+        int keySize = Math.min(buf.position(), MAX_KEY_SIZE);
+        buf.flip();
+        byte[] bytes = new byte[keySize];
+        buf.get(bytes);
+
+        buf.position(oldPosition);
+        buf.limit(oldLimit);
+
+        return Arrays.toString(bytes);
     }
 }

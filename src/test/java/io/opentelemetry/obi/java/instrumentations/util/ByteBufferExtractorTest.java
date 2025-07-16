@@ -1,4 +1,4 @@
-package org.grafana.beyla.instrumentations.util;
+package io.opentelemetry.obi.java.instrumentations.util;
 
 import org.junit.jupiter.api.Test;
 

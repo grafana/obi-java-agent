@@ -1,4 +1,4 @@
-package org.grafana.beyla.ebpf;
+package io.opentelemetry.obi.java.ebpf;
 
 public enum OperationType {
     SEND((byte) 1),

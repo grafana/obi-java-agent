@@ -1,8 +1,8 @@
-package org.grafana.beyla.ebpf;
+package io.opentelemetry.obi.java.ebpf;
 
 import com.sun.jna.Memory;
 import com.sun.jna.Pointer;
-import org.grafana.beyla.Agent;
+import io.opentelemetry.obi.java.Agent;
 
 import java.io.IOException;
 import java.io.InputStream;

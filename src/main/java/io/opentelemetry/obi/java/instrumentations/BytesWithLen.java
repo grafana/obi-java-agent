@@ -1,4 +1,4 @@
-package org.grafana.beyla.instrumentations;
+package io.opentelemetry.obi.java.instrumentations;
 
 public class BytesWithLen {
     public final byte[] buf;
