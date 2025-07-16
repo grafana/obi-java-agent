@@ -28,6 +28,7 @@
     </dependencies>
 
     <build>
+        <finalName>obi-java-agent</finalName>
         <resources>
             <resource>
                 <directory>${project.basedir}/src/main/resources/agent</directory>

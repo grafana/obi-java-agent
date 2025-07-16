@@ -18,6 +18,12 @@ public class Loader {
     public static void premain(String agentArgs, Instrumentation inst) {
         String agentResourcePath = "agent/agent.jar";
 
+        try {
+            Class.forName("io.opentelemetry.obi.java.ebpf.ProxyOutputStream");
+            System.err.println("agent already loaded, ignoring load request.");
+            return;
+        } catch (ClassNotFoundException ignore) {}
+
         File tempAgentJar;
         try (InputStream agentJarStream = Loader.class.getClassLoader().getResourceAsStream(agentResourcePath)) {
             if (agentJarStream == null) {
