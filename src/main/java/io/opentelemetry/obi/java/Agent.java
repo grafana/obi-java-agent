@@ -27,7 +27,7 @@ import static net.bytebuddy.matcher.ElementMatchers.none;
 import static net.bytebuddy.dynamic.loading.ClassInjector.UsingInstrumentation.Target.BOOTSTRAP;
 
 public class Agent {
-    public static int IOCTL_CMD = 0xb311a;
+    public static int IOCTL_CMD = 0x0b10b1;
 
     public static boolean debugOn = false;
 
