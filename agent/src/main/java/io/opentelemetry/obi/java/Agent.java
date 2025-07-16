@@ -119,7 +119,7 @@ public class Agent {
         Class.forName(ByteBufferExtractor.class.getName());
 
         // It's hard to predict what classes will this JNA operation use, so we
-        // perform one dummy write
+        // perform one dummy write.
         byte[] data = new byte[]{0};
         Pointer p = new Memory(data.length);
         p.write(0, data, 0, data.length);
