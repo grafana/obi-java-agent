@@ -31,6 +31,21 @@ public class ByteBufferExtractor {
         return dstBuffer;
     }
 
+    public static ByteBuffer bufferArray(ByteBuffer dst, int len) {
+        int bufSize = Math.min(len, MAX_SIZE);
+        ByteBuffer dstBuffer = ByteBuffer.allocate(bufSize);
+        if (dst != null) {
+            int oldPos = dst.position();
+            dst.flip();
+            ByteBuffer slice = dst.slice();
+            slice.limit(bufSize);
+            dstBuffer.put(slice);
+            dst.position(oldPos);
+        }
+
+        return dstBuffer;
+    }
+
     public static String bufferKey(ByteBuffer buf) {
         int oldPosition = buf.position();
         int oldLimit = buf.limit();

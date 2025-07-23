@@ -80,12 +80,11 @@ public class SSLEngineInst {
             }
 
             if (result.bytesProduced() > 0 && dst.limit() >= result.bytesProduced()) {
-                int bufferSize = Math.min(result.bytesProduced(), 1024);
+                ByteBuffer dstBuffer = ByteBufferExtractor.bufferArray(dst, result.bytesProduced());
+                int bufferSize = Math.min(result.bytesProduced(), ByteBufferExtractor.MAX_SIZE);
                 byte[] b = new byte[bufferSize];
-                int oldPos = dst.position();
-                dst.position(dst.arrayOffset());
-                dst.get(b, 0, bufferSize);
-                dst.position(oldPos);
+                dstBuffer.flip();
+                dstBuffer.get(b, 0, bufferSize);
 
                 Pointer p = new Memory(IOCTLPacket.packetPrefixSize + b.length);
                 int wOff = IOCTLPacket.writePacketPrefix(p, 0, OperationType.RECEIVE, c, b.length);

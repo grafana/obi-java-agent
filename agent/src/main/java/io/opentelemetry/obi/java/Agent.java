@@ -62,9 +62,9 @@ public class Agent {
 
         String debug = opts.getOrDefault("debug", "");
         if (debug.toLowerCase(Locale.getDefault()).equals("true")) {
-            builder = builder
-                    .with(AgentBuilder.Listener.StreamWriting.toSystemError().withTransformationsOnly()) // debug
-                    .with(AgentBuilder.InstallationListener.StreamWriting.toSystemError()); // debug
+//            builder = builder
+//                    .with(AgentBuilder.Listener.StreamWriting.toSystemError().withTransformationsOnly()) // debug
+//                    .with(AgentBuilder.InstallationListener.StreamWriting.toSystemError()); // debug
             Agent.debugOn = true;
             SSLStorage.debugOn = true;
         }
