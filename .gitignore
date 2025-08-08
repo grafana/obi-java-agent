@@ -35,4 +35,5 @@ build/
 .DS_Store
 
 .mvn/
-loader/src/main/resources/agent/agent.jar
+.gradle
+loader/src/main/resources/agent/agent.zip

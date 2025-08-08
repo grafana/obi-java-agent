@@ -8,13 +8,14 @@ import java.nio.file.Files;
 
 public class Loader {
     public static void agentCaller(String function, String agentArgs, Instrumentation inst) {
-        String agentResourcePath = "agent/agent.jar";
+        String agentResourcePath = "agent/agent.zip";
 
         try {
             Class.forName("io.opentelemetry.obi.java.ebpf.ProxyOutputStream");
             System.err.println("agent already loaded, ignoring load request.");
             return;
-        } catch (ClassNotFoundException ignore) {}
+        } catch (ClassNotFoundException ignore) {
+        }
 
         File tempAgentJar;
         try (InputStream agentJarStream = Loader.class.getClassLoader().getResourceAsStream(agentResourcePath)) {
@@ -37,10 +38,12 @@ public class Loader {
 
         try {
             URL agentJarUrl = tempAgentJar.toURI().toURL();
-            try (URLClassLoader agentClassLoader = new URLClassLoader(new URL[]{agentJarUrl}, Loader.class.getClassLoader())) {
+            try (URLClassLoader agentClassLoader = new URLClassLoader(new URL[] { agentJarUrl },
+                    Loader.class.getClassLoader())) {
                 Class<?> mainClass = agentClassLoader.loadClass("io.opentelemetry.obi.java.Agent");
 
-                java.lang.reflect.Method mainMethod = mainClass.getMethod(function, String.class, Instrumentation.class);
+                java.lang.reflect.Method mainMethod = mainClass.getMethod(function, String.class,
+                        Instrumentation.class);
                 mainMethod.invoke(null, agentArgs, inst);
             }
         } catch (Exception e) {
