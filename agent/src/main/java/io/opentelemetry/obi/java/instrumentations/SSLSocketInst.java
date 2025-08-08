@@ -20,6 +20,10 @@ public class SSLSocketInst {
                 .and(ElementMatchers.not(ElementMatchers.isInterface()));
     }
 
+    public static boolean matches(Class<?> clazz) {
+        return SSLSocket.class.isAssignableFrom(clazz);
+    }
+
     public static AgentBuilder.Transformer transformer() {
         return (builder, type, classLoader, module, protectionDomain) ->
                 builder

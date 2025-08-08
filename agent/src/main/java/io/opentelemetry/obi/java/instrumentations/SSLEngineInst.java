@@ -19,7 +19,11 @@ import java.util.Arrays;
 
 public class SSLEngineInst {
     public static ElementMatcher<? super TypeDescription> type() {
-        return ElementMatchers.is(SSLEngine.class);
+        return ElementMatchers.isSubTypeOf(SSLEngine.class);
+    }
+
+    public static boolean matches(Class<?> clazz) {
+        return SSLEngine.class.isAssignableFrom(clazz);
     }
 
     public static AgentBuilder.Transformer transformer() {
@@ -54,6 +58,17 @@ public class SSLEngineInst {
     }
 
     public static final class UnwrapAdvice {
+        @Advice.OnMethodEnter
+        public static void unwrap(
+                @Advice.This final javax.net.ssl.SSLEngine engine,
+                @Advice.Argument(1) final ByteBuffer dst) {
+            if (engine.getSession().getId().length == 0) {
+                return;
+            }
+
+            SSLStorage.bufPos.set(dst.position());
+        }
+
         @Advice.OnMethodExit
         public static void unwrap(
                 @Advice.This final javax.net.ssl.SSLEngine engine,
@@ -67,6 +82,10 @@ public class SSLEngineInst {
                 c = SSLStorage.getConnectionForBuf(bufKey);
 
                 if (c == null) {
+                    c = (Connection) SSLStorage.nettyConnection.get();
+                }
+
+                if (c == null) {
                     if (SSLStorage.debugOn) {
                         System.out.println("Can't find connection " + engine);
                     }
@@ -76,25 +95,57 @@ public class SSLEngineInst {
             }
 
             if (engine.getSession().getId().length == 0) {
+                SSLStorage.bufPos.remove();
                 return;
             }
 
             if (result.bytesProduced() > 0 && dst.limit() >= result.bytesProduced()) {
-                ByteBuffer dstBuffer = ByteBufferExtractor.bufferArray(dst, result.bytesProduced());
-                int bufferSize = Math.min(result.bytesProduced(), ByteBufferExtractor.MAX_SIZE);
-                byte[] b = new byte[bufferSize];
-                dstBuffer.flip();
-                dstBuffer.get(b, 0, bufferSize);
+                int oldPos = dst.position();
+
+                Integer savedPos = SSLStorage.bufPos.get();
+                if (savedPos == null) {
+                    System.out.println("Error reading saved Buffer pos");
+                    return;
+                }
+
+                dst.position(savedPos);
+                ByteBuffer dstBuffer = ByteBufferExtractor.srcBufferArray(dst, result.bytesProduced());
+                dst.position(oldPos);
+
+                byte[] b = dstBuffer.array();
+
+                if (SSLStorage.debugOn) {
+                    System.out.println("unwrap:" + new String(b, java.nio.charset.StandardCharsets.UTF_8));
+                }
 
                 Pointer p = new Memory(IOCTLPacket.packetPrefixSize + b.length);
                 int wOff = IOCTLPacket.writePacketPrefix(p, 0, OperationType.RECEIVE, c, b.length);
                 IOCTLPacket.writePacketBuffer(p, wOff, b);
                 Agent.CLibrary.INSTANCE.ioctl(0, Agent.IOCTL_CMD, Pointer.nativeValue(p));
             }
+
+            SSLStorage.bufPos.remove();
         }
     }
 
     public static final class UnwrapAdviceArray {
+        @Advice.OnMethodEnter
+
+        public static void unwrap(
+                @Advice.This final javax.net.ssl.SSLEngine engine,
+                @Advice.Argument(1) final ByteBuffer[] dsts) {
+            if (dsts.length == 0 || engine.getSession().getId().length == 0) {
+                return;
+            }
+
+            int[] positions = new int[dsts.length];
+            for (int i = 0; i < dsts.length; i++) {
+                positions[i] = dsts[i].position();
+            }
+
+            SSLStorage.bufPositions.set(positions);
+        }
+
         @Advice.OnMethodExit
         public static void unwrap(
                 @Advice.This final javax.net.ssl.SSLEngine engine,
@@ -103,9 +154,13 @@ public class SSLEngineInst {
             Connection c = SSLStorage.getConnectionForSession(engine);
 
             if (c == null) {
-                ByteBuffer dstBuffer = ByteBufferExtractor.flattenByteBufferArray(dsts, ByteBufferExtractor.MAX_KEY_SIZE);
+                ByteBuffer dstBuffer = ByteBufferExtractor.flattenDstByteBufferArray(dsts, ByteBufferExtractor.MAX_KEY_SIZE);
                 String bufKey = Arrays.toString(dstBuffer.array());
                 c = SSLStorage.getConnectionForBuf(bufKey);
+
+                if (c == null) {
+                    c = (Connection) SSLStorage.nettyConnection.get();
+                }
 
                 if (c == null) {
                     if (SSLStorage.debugOn) {
@@ -117,23 +172,66 @@ public class SSLEngineInst {
             }
 
             if (dsts.length == 0 || engine.getSession().getId().length == 0) {
+                SSLStorage.bufPositions.remove();
                 return;
             }
 
             if (result.bytesProduced() > 0) {
-                ByteBuffer dstBuffer = ByteBufferExtractor.flattenByteBufferArray(dsts, result.bytesProduced());
+                int[] oldDstPositions = new int[dsts.length];
+                int[] savedDstPositions = SSLStorage.bufPositions.get();
+                if (savedDstPositions == null) {
+                    System.out.println("Can't find saved destination positions");
+                    return;
+                }
+
+                for (int i = 0; i < dsts.length; i++) {
+                    oldDstPositions[i] = dsts[i].position();
+                    dsts[i].position(savedDstPositions[i]);
+                }
+
+                ByteBuffer dstBuffer = ByteBufferExtractor.flattenSrcByteBufferArray(dsts);
+
+                for (int i = 0; i < dsts.length; i++) {
+                    dsts[i].position(oldDstPositions[i]);
+                }
+
                 byte[] b = dstBuffer.array();
-                int len = dstBuffer.limit();
+                int len = dstBuffer.position();
+
+                if (SSLStorage.debugOn) {
+                    System.out.println("unwrap array:" + new String(b, java.nio.charset.StandardCharsets.UTF_8));
+                }
 
                 Pointer p = new Memory(IOCTLPacket.packetPrefixSize + len);
                 int wOff = IOCTLPacket.writePacketPrefix(p, 0, OperationType.RECEIVE, c, len);
-                IOCTLPacket.writePacketBuffer(p, wOff, b);
+                IOCTLPacket.writePacketBuffer(p, wOff, b, 0, len);
                 Agent.CLibrary.INSTANCE.ioctl(0, Agent.IOCTL_CMD, Pointer.nativeValue(p));
             }
+
+            SSLStorage.bufPositions.remove();
         }
     }
 
     public static final class WrapAdvice {
+        @Advice.OnMethodEnter//(suppress = Throwable.class)
+        public static void wrap(
+                @Advice.This final javax.net.ssl.SSLEngine engine,
+                @Advice.Argument(0) final ByteBuffer src) {
+            if (engine.getSession().getId().length == 0) {
+                return;
+            }
+
+            if (!src.hasRemaining()) {
+                return;
+            }
+
+            ByteBuffer buf = ByteBufferExtractor.srcBufferArray(src, src.remaining());
+            byte[] b = buf.array();
+            int len = buf.position();
+
+            SSLStorage.unencrypted.set(new BytesWithLen(b, len));
+        }
+
         @Advice.OnMethodExit//(suppress = Throwable.class)
         public static void wrap(
                 @Advice.This final javax.net.ssl.SSLEngine engine,
@@ -141,23 +239,59 @@ public class SSLEngineInst {
                 @Advice.Argument(1) final ByteBuffer dst,
                 @Advice.Return SSLEngineResult result) {
             if (engine.getSession().getId().length == 0) {
+                SSLStorage.unencrypted.remove();
                 return;
             }
-            if (result.bytesConsumed() > 0) {
-                int bufferSize = Math.min(result.bytesConsumed(), 1024);
-                byte[] b = new byte[bufferSize];
-                int oldPos = src.position();
-                src.position(src.arrayOffset());
-                src.get(b, 0, bufferSize);
-                src.position(oldPos);
 
-                String encrypted = ByteBufferExtractor.bufferKey(dst);
-                SSLStorage.setBufferMapping(encrypted, new BytesWithLen(b, bufferSize));
+            if (result.bytesConsumed() > 0) {
+                BytesWithLen bLen = SSLStorage.unencrypted.get();
+                if (bLen == null) {
+                    System.out.println("Error, empty bytes");
+                    return;
+                }
+
+                if (SSLStorage.debugOn) {
+                    System.out.println("wrap :" + new String(bLen.buf, java.nio.charset.StandardCharsets.UTF_8));
+                }
+
+                Connection c = (Connection) SSLStorage.nettyConnection.get();
+                if (SSLStorage.debugOn) {
+                    System.out.println("Found netty connection " + c + " thread " + Thread.currentThread().getName());
+                }
+                if (c != null) {
+                    Pointer p = new Memory(IOCTLPacket.packetPrefixSize + bLen.len);
+                    int wOff = IOCTLPacket.writePacketPrefix(p, 0, OperationType.SEND, c, bLen.len);
+                    IOCTLPacket.writePacketBuffer(p, wOff, bLen.buf, 0, bLen.len);
+                    Agent.CLibrary.INSTANCE.ioctl(0, Agent.IOCTL_CMD, Pointer.nativeValue(p));
+                } else {
+                    String encrypted = ByteBufferExtractor.bufferKey(dst);
+                    if (SSLStorage.debugOn) {
+                        System.out.println("buf mapping on: " + encrypted);
+                    }
+                    SSLStorage.setBufferMapping(encrypted, bLen);
+                }
             }
+
+            SSLStorage.unencrypted.remove();
         }
     }
 
     public static final class WrapAdviceArray {
+        @Advice.OnMethodEnter//(suppress = Throwable.class)
+        public static void wrap(
+                @Advice.This final javax.net.ssl.SSLEngine engine,
+                @Advice.Argument(0) final ByteBuffer[] srcs) {
+            if (srcs.length == 0 || engine.getSession().getId().length == 0) {
+                return;
+            }
+
+            ByteBuffer buf = ByteBufferExtractor.flattenSrcByteBufferArray(srcs);
+            byte[] b = buf.array();
+            int len = buf.position();
+
+            SSLStorage.unencrypted.set(new BytesWithLen(b, len));
+        }
+
         @Advice.OnMethodExit//(suppress = Throwable.class)
         public static void wrap(
                 @Advice.This final javax.net.ssl.SSLEngine engine,
@@ -165,16 +299,40 @@ public class SSLEngineInst {
                 @Advice.Argument(1) final ByteBuffer dst,
                 @Advice.Return SSLEngineResult result) {
             if (srcs.length == 0 || engine.getSession().getId().length == 0) {
+                SSLStorage.unencrypted.remove();
                 return;
             }
-            if (result.bytesConsumed() > 0) {
-                ByteBuffer dstBuffer = ByteBufferExtractor.flattenByteBufferArray(srcs, result.bytesConsumed());
-                byte[] b = dstBuffer.array();
-                int len = dstBuffer.limit();
 
-                String encrypted = ByteBufferExtractor.bufferKey(dst);
-                SSLStorage.setBufferMapping(encrypted, new BytesWithLen(b, len));
+            if (result.bytesConsumed() > 0) {
+                BytesWithLen bLen = SSLStorage.unencrypted.get();
+                if (bLen == null) {
+                    System.out.println("Error, empty bytes");
+                    return;
+                }
+
+                if (SSLStorage.debugOn) {
+                    System.out.println("wrap array :[" + bLen.len + "]" + new String(bLen.buf, java.nio.charset.StandardCharsets.UTF_8));
+                }
+
+                Connection c = (Connection) SSLStorage.nettyConnection.get();
+                if (SSLStorage.debugOn) {
+                    System.out.println("Found netty connection " + c + " thread " + Thread.currentThread().getName());
+                }
+                if (c != null) {
+                    Pointer p = new Memory(IOCTLPacket.packetPrefixSize + bLen.len);
+                    int wOff = IOCTLPacket.writePacketPrefix(p, 0, OperationType.SEND, c, bLen.len);
+                    IOCTLPacket.writePacketBuffer(p, wOff, bLen.buf, 0, bLen.len);
+                    Agent.CLibrary.INSTANCE.ioctl(0, Agent.IOCTL_CMD, Pointer.nativeValue(p));
+                } else {
+                    String encrypted = ByteBufferExtractor.bufferKey(dst);
+                    if (SSLStorage.debugOn) {
+                        System.out.println("buf array mapping on: " + encrypted);
+                    }
+                    SSLStorage.setBufferMapping(encrypted, bLen);
+                }
             }
+
+            SSLStorage.unencrypted.remove();
         }
     }
 }

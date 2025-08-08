@@ -1,8 +1,5 @@
 package io.opentelemetry.obi.java;
 
-import com.sun.jna.Library;
-import com.sun.jna.Native;
-
 import java.io.*;
 import java.lang.instrument.Instrumentation;
 import java.net.URL;
@@ -10,12 +7,7 @@ import java.net.URLClassLoader;
 import java.nio.file.Files;
 
 public class Loader {
-    // Load JNA in the system class loader, otherwise it won't load the shared libs.
-    public interface CLibrary extends Library {
-        CLibrary INSTANCE = Native.load("c", CLibrary.class);
-    }
-
-    public static void premain(String agentArgs, Instrumentation inst) {
+    public static void agentCaller(String function, String agentArgs, Instrumentation inst) {
         String agentResourcePath = "agent/agent.jar";
 
         try {
@@ -45,10 +37,10 @@ public class Loader {
 
         try {
             URL agentJarUrl = tempAgentJar.toURI().toURL();
-            try (URLClassLoader agentClassLoader = new URLClassLoader(new URL[]{agentJarUrl}, null)) {
+            try (URLClassLoader agentClassLoader = new URLClassLoader(new URL[]{agentJarUrl}, Loader.class.getClassLoader())) {
                 Class<?> mainClass = agentClassLoader.loadClass("io.opentelemetry.obi.java.Agent");
 
-                java.lang.reflect.Method mainMethod = mainClass.getMethod("premain", String.class, Instrumentation.class);
+                java.lang.reflect.Method mainMethod = mainClass.getMethod(function, String.class, Instrumentation.class);
                 mainMethod.invoke(null, agentArgs, inst);
             }
         } catch (Exception e) {
@@ -56,8 +48,12 @@ public class Loader {
         }
     }
 
+    public static void premain(String agentArgs, Instrumentation inst) {
+        agentCaller("premain", agentArgs, inst);
+    }
+
     public static void agentmain(String args, Instrumentation inst) {
-        premain(args, inst);
+        agentCaller("agentmain", args, inst);
     }
 
     // Just a test method functionality, not used in the Agent

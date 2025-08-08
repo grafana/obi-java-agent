@@ -8,20 +8,22 @@ import com.sun.jna.Native;
 import com.sun.jna.Pointer;
 import io.opentelemetry.obi.java.ebpf.*;
 import io.opentelemetry.obi.java.instrumentations.*;
+import io.opentelemetry.obi.java.instrumentations.util.NettyChannelExtractor;
 import net.bytebuddy.agent.ByteBuddyAgent;
 import net.bytebuddy.agent.builder.AgentBuilder;
 import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.dynamic.ClassFileLocator;
 import net.bytebuddy.dynamic.loading.ClassInjector;
 import io.opentelemetry.obi.java.instrumentations.util.ByteBufferExtractor;
+import net.bytebuddy.utility.JavaModule;
 
 import java.io.File;
 import java.io.IOException;
 import java.lang.instrument.Instrumentation;
+import java.lang.instrument.UnmodifiableClassException;
+import java.lang.reflect.Field;
 import java.nio.file.Files;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 
 import static net.bytebuddy.matcher.ElementMatchers.none;
 import static net.bytebuddy.dynamic.loading.ClassInjector.UsingInstrumentation.Target.BOOTSTRAP;
@@ -37,7 +39,64 @@ public class Agent {
         int ioctl(int fd, int cmd, long argp);
     }
 
-    private static AgentBuilder builder(String agentArgs) {
+    private static AgentBuilder builder(Map<String, String> opts, Instrumentation inst) {
+//         ClassFileLocator adviceLocator = new ClassFileLocator.Compound(
+//                 ClassFileLocator.ForClassLoader.ofSystemLoader(),
+//                 ClassFileLocator.ForClassLoader.of(Agent.class.getClassLoader()),
+//                 ClassFileLocator.ForClassLoader.ofPlatformLoader(),
+//                 ClassFileLocator.ForClassLoader.ofBootLoader()
+//         );
+
+        AgentBuilder builder = new AgentBuilder.Default()
+                //.with(new AgentBuilder.LocationStrategy.Simple(adviceLocator))
+                .with(new AgentBuilder.LocationStrategy() {
+                    @Override
+                    public ClassFileLocator classFileLocator(ClassLoader classLoader, JavaModule module) {
+                        return ClassFileLocator.ForClassLoader.of(classLoader);
+                    }
+//                        Set<ClassLoader> classLoaders = new HashSet<>();
+//                        // Add the provided classLoader
+//                        if (classLoader != null) {
+//                            classLoaders.add(classLoader);
+//                        }
+//                        // Add system, platform, and bootstrap loaders
+//                        classLoaders.add(ClassLoader.getSystemClassLoader());
+//                        classLoaders.add(ClassLoader.getPlatformClassLoader());
+//                        // Bootstrap loader is represented by null
+//                        classLoaders.add(null);
+//
+//                        // Add all class loaders from loaded classes
+//                        for (Class<?> clazz : inst.getAllLoadedClasses()) {
+//                            ClassLoader cl = clazz.getClassLoader();
+//                            if (cl != null) {
+//                                classLoaders.add(cl);
+//                            }
+//                        }
+//
+//                        List<ClassFileLocator> locators = new ArrayList<>();
+//                        for (ClassLoader cl : classLoaders) {
+//                            locators.add(ClassFileLocator.ForClassLoader.of(cl));
+//                        }
+//                        // Optionally add boot loader locator
+//                        locators.add(ClassFileLocator.ForClassLoader.ofBootLoader());
+//
+//                        return new ClassFileLocator.Compound(locators);                    }
+                })
+                .disableClassFormatChanges()
+                .ignore(none())
+                .with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION) // required for dynamic injection
+                .with(AgentBuilder.InitializationStrategy.NoOp.INSTANCE) // required for dynamic injection
+                .with(AgentBuilder.TypeStrategy.Default.REDEFINE) // required for dynamic injection
+                ;
+        if (optEnabled(opts, "debugBB")) {
+            builder = builder
+                    .with(AgentBuilder.Listener.StreamWriting.toSystemOut());
+        }
+
+        return builder;
+    }
+
+    private static Map<String, String> parseArgs(String agentArgs) {
         Map<String, String> opts = new HashMap<>();
         if (agentArgs != null && !agentArgs.isEmpty()) {
             String[] options = agentArgs.split(",");
@@ -49,42 +108,36 @@ public class Agent {
             }
         }
 
-        ClassFileLocator adviceLocator = new ClassFileLocator.Compound(
-                ClassFileLocator.ForClassLoader.ofSystemLoader(),
-                ClassFileLocator.ForClassLoader.of(Agent.class.getClassLoader())
-        );
+        return opts;
+    }
 
-        AgentBuilder builder = new AgentBuilder.Default()
-                .with(new AgentBuilder.LocationStrategy.Simple(adviceLocator))
-                .with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION) // required for dynamic injection
-                .with(AgentBuilder.InitializationStrategy.NoOp.INSTANCE) // required for dynamic injection
-                .with(AgentBuilder.TypeStrategy.Default.REDEFINE); // required for dynamic injection
-
-        String debug = opts.getOrDefault("debug", "");
-        if (debug.toLowerCase(Locale.getDefault()).equals("true")) {
-//            builder = builder
-//                    .with(AgentBuilder.Listener.StreamWriting.toSystemError().withTransformationsOnly()) // debug
-//                    .with(AgentBuilder.InstallationListener.StreamWriting.toSystemError()); // debug
-            Agent.debugOn = true;
-            SSLStorage.debugOn = true;
-        }
-
-        return builder;
+    private static boolean optEnabled(Map<String, String> opts, String opt) {
+        String optVal = opts.getOrDefault(opt, "");
+        return optVal.toLowerCase(Locale.getDefault()).equals("true");
     }
 
     // Main agent load and instrumentation code, this gets invoked directly with -javaagent on the
     // command line
     public static void premain(String agentArgs, Instrumentation inst) {
+        Map<String, String> opts = parseArgs(agentArgs);
+
+        if (optEnabled(opts, "debug")) {
+            Agent.debugOn = true;
+        }
+
         try {
             initClassesThatNeedToBeBootstrapped();
             injectBootstrapClasses(inst);
+            if (Agent.debugOn) {
+                setupInstrumentationsDebugging();
+            }
         } catch (Exception x) {
             if (Agent.debugOn) {
                 x.printStackTrace();
             }
         }
 
-        builder(agentArgs)
+        builder(opts, inst)
                 .ignore(none())
                 .type(SSLSocketInst.type())
                 .transform(SSLSocketInst.transformer())
@@ -92,12 +145,36 @@ public class Agent {
                 .transform(SSLEngineInst.transformer())
                 .type(SocketChannelInst.type())
                 .transform(SocketChannelInst.transformer())
+                .type(NettySSLHandlerInst.type())
+                .transform(NettySSLHandlerInst.transformer())
                 .installOn(inst);
     }
 
     // Needed for Dynamic Agent Injection
-    public static void agentmain(String args, Instrumentation inst) {
+    public static void agentmain(String args, Instrumentation inst) throws UnmodifiableClassException {
         premain(args, inst);
+
+        // This reattempt to instrument is required because sometimes. Depending on the classes
+        // loaded, some classes disrupt ByteBuddy such that it cannot find the classes we said
+        // we want to instrument.
+        for (Class<?> clazz : inst.getAllLoadedClasses()) {
+            if (SSLSocketInst.matches(clazz)
+                || SSLEngineInst.matches(clazz)
+                || SocketChannelInst.matches(clazz)
+                || NettySSLHandlerInst.matches(clazz)
+            ) {
+                if (Agent.debugOn) {
+                    System.out.println("Retransforming " + clazz);
+                }
+                try {
+                    inst.retransformClasses(clazz);
+                } catch (Throwable t) { // Failure can be normal if we've retransformed this class before
+                    if (Agent.debugOn) {
+                        System.out.println("Error " + t.getMessage());
+                    }
+                }
+            }
+        }
     }
 
     // Just a test method functionality, not used in the Agent
@@ -115,6 +192,7 @@ public class Agent {
         Class.forName(Agent.class.getName());
         Class.forName(BytesWithLen.class.getName());
         Class.forName(Connection.class.getName());
+        Class.forName(NettyChannelExtractor.class.getName());
         Class.forName(SSLStorage.class.getName());
         Class.forName(ByteBufferExtractor.class.getName());
 
@@ -142,10 +220,16 @@ public class Agent {
         Map<TypeDescription, byte[]> typeMap = new java.util.HashMap<>();
         ClassLoader agentClassLoader = Agent.class.getClassLoader();
 
+        ClassFileLocator locator = new ClassFileLocator.Compound(
+                 ClassFileLocator.ForClassLoader.ofSystemLoader(),
+                 ClassFileLocator.ForClassLoader.of(agentClassLoader),
+                 ClassFileLocator.ForClassLoader.ofPlatformLoader(),
+                 ClassFileLocator.ForClassLoader.ofBootLoader()
+         );
         // This will pick up all the classes initialised in initClassesThatNeedToBeBootstrapped
-        try (ClassFileLocator locator = ClassFileLocator.ForClassLoader.of(agentClassLoader)) {
+        //try (ClassFileLocator locator = ClassFileLocator.ForClassLoader.of(agentClassLoader)) {
             for (Class<?> clazz : instrumentation.getAllLoadedClasses()) {
-                if (clazz.getClassLoader() == agentClassLoader) {
+                //if (clazz.getClassLoader() == agentClassLoader) {
                     TypeDescription desc = new TypeDescription.ForLoadedType(clazz);
                     if (desc.getName().startsWith("com.sun.")
                             || desc.getName().startsWith("io.opentelemetry.obi.")
@@ -158,11 +242,23 @@ public class Agent {
                         }
                     }
                 }
-            }
-        }
+//            }
+//        }
 
         ClassInjector injector = ClassInjector.UsingInstrumentation.of(tempDir, BOOTSTRAP, instrumentation);
         injector.inject(typeMap);
         tempDir.delete();
+    }
+
+    // Must be called after we've called injectBootstrapClasses
+    public static void setupInstrumentationsDebugging() {
+        try {
+            Class<?> sslStorageClass = Class.forName("io.opentelemetry.obi.java.instrumentations.SSLStorage", true, null);
+            Field debugOn = sslStorageClass.getDeclaredField("debugOn");
+            debugOn.set(null, true);
+            System.out.println("Setting up instrumentations debugging");
+        } catch (Exception x) {
+            x.printStackTrace();
+        }
     }
 }
