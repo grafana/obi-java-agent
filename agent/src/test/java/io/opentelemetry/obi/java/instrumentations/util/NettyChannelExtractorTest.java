@@ -1,7 +1,7 @@
 package io.opentelemetry.obi.java.instrumentations.util;
 
-import io.opentelemetry.obi.java.instrumentations.Connection;
-import io.opentelemetry.obi.java.instrumentations.SSLStorage;
+import io.opentelemetry.obi.java.instrumentations.data.Connection;
+import io.opentelemetry.obi.java.instrumentations.data.SSLStorage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 

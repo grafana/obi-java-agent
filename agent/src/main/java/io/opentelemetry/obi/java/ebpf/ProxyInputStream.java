@@ -12,6 +12,8 @@ public class ProxyInputStream extends InputStream {
     private final InputStream delegate;
     private final Socket socket;
 
+    static Agent.CLibrary instance = Agent.CLibrary.INSTANCE;
+
     public ProxyInputStream(InputStream delegate, Socket socket) {
         this.delegate = delegate;
         this.socket = socket;
@@ -29,7 +31,7 @@ public class ProxyInputStream extends InputStream {
             Pointer p = new Memory(IOCTLPacket.packetPrefixSize + b.length );
             int wOff = IOCTLPacket.writePacketPrefix(p, 0, OperationType.RECEIVE, socket, b.length);
             IOCTLPacket.writePacketBuffer(p, wOff, b);
-            Agent.CLibrary.INSTANCE.ioctl(0, Agent.IOCTL_CMD, Pointer.nativeValue(p));
+            instance.ioctl(0, Agent.IOCTL_CMD, Pointer.nativeValue(p));
         }
         return len;
     }
@@ -41,7 +43,7 @@ public class ProxyInputStream extends InputStream {
             Pointer p = new Memory(IOCTLPacket.packetPrefixSize + bytesRead);
             int wOff = IOCTLPacket.writePacketPrefix(p, 0, OperationType.RECEIVE, socket, bytesRead);
             IOCTLPacket.writePacketBuffer(p, wOff, b, off, bytesRead);
-            Agent.CLibrary.INSTANCE.ioctl(0, Agent.IOCTL_CMD, Pointer.nativeValue(p));
+            instance.ioctl(0, Agent.IOCTL_CMD, Pointer.nativeValue(p));
         }
         return bytesRead;
     }

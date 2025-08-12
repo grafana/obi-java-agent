@@ -1,4 +1,4 @@
-package io.opentelemetry.obi.java.instrumentations;
+package io.opentelemetry.obi.java.instrumentations.data;
 
 public class BytesWithLen {
     public final byte[] buf;

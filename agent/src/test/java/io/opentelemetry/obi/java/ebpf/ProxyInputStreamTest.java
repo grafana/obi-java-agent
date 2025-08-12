@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.net.Socket;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -24,16 +23,8 @@ class ProxyInputStreamTest {
     }
 
     @BeforeEach
-    void setUp() throws NoSuchFieldException, IllegalAccessException {
-        Field instanceField = Agent.CLibrary.class.getDeclaredField("INSTANCE");
-        instanceField.setAccessible(true);
-
-        // Remove final modifier (for testing only)
-        Field modifiersField = Field.class.getDeclaredField("modifiers");
-        modifiersField.setAccessible(true);
-        modifiersField.setInt(instanceField, instanceField.getModifiers() & ~java.lang.reflect.Modifier.FINAL);
-
-        instanceField.set(null, new ProxyInputStreamTest.MockCLibrary());
+    void setUp() {
+        ProxyInputStream.instance = new MockCLibrary();
     }
 
     @Test

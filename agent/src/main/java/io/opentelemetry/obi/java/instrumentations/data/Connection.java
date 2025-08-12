@@ -1,4 +1,4 @@
-package io.opentelemetry.obi.java.instrumentations;
+package io.opentelemetry.obi.java.instrumentations.data;
 
 import java.net.InetAddress;
 import java.util.Objects;

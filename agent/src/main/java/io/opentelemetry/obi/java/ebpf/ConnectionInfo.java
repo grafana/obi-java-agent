@@ -1,7 +1,7 @@
 package io.opentelemetry.obi.java.ebpf;
 
 import com.sun.jna.Pointer;
-import io.opentelemetry.obi.java.instrumentations.Connection;
+import io.opentelemetry.obi.java.instrumentations.data.Connection;
 
 import java.net.InetAddress;
 import java.net.Socket;

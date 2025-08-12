@@ -2,6 +2,9 @@ package io.opentelemetry.obi.java.instrumentations;
 
 import com.sun.jna.Memory;
 import com.sun.jna.Pointer;
+import io.opentelemetry.obi.java.instrumentations.data.BytesWithLen;
+import io.opentelemetry.obi.java.instrumentations.data.Connection;
+import io.opentelemetry.obi.java.instrumentations.data.SSLStorage;
 import net.bytebuddy.agent.builder.AgentBuilder;
 import net.bytebuddy.asm.Advice;
 import net.bytebuddy.description.type.TypeDescription;

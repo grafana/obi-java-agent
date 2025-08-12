@@ -8,6 +8,9 @@ import com.sun.jna.Native;
 import com.sun.jna.Pointer;
 import io.opentelemetry.obi.java.ebpf.*;
 import io.opentelemetry.obi.java.instrumentations.*;
+import io.opentelemetry.obi.java.instrumentations.data.BytesWithLen;
+import io.opentelemetry.obi.java.instrumentations.data.Connection;
+import io.opentelemetry.obi.java.instrumentations.data.SSLStorage;
 import io.opentelemetry.obi.java.instrumentations.util.NettyChannelExtractor;
 import net.bytebuddy.agent.ByteBuddyAgent;
 import net.bytebuddy.agent.builder.AgentBuilder;
@@ -214,7 +217,7 @@ public class Agent {
     // Must be called after we've called injectBootstrapClasses
     public static void setupInstrumentationsDebugging() {
         try {
-            Class<?> sslStorageClass = Class.forName("io.opentelemetry.obi.java.instrumentations.SSLStorage", true, null);
+            Class<?> sslStorageClass = Class.forName("io.opentelemetry.obi.java.instrumentations.data.SSLStorage", true, null);
             Field debugOn = sslStorageClass.getDeclaredField("debugOn");
             debugOn.set(null, true);
             System.out.println("Setting up instrumentations debugging");

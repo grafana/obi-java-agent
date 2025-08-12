@@ -1,5 +1,6 @@
 package io.opentelemetry.obi.java.instrumentations;
 
+import io.opentelemetry.obi.java.instrumentations.data.SSLStorage;
 import net.bytebuddy.agent.builder.AgentBuilder;
 import net.bytebuddy.asm.Advice;
 import net.bytebuddy.description.type.TypeDescription;

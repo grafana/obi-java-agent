@@ -12,6 +12,8 @@ public class ProxyOutputStream extends OutputStream {
     private final OutputStream delegate;
     private final Socket socket;
 
+    static Agent.CLibrary instance = Agent.CLibrary.INSTANCE;
+
     public ProxyOutputStream(OutputStream delegate, Socket socket) {
         this.delegate = delegate;
         this.socket = socket;
@@ -27,7 +29,7 @@ public class ProxyOutputStream extends OutputStream {
             Pointer p = new Memory(IOCTLPacket.packetPrefixSize + b.length);
             int wOff = IOCTLPacket.writePacketPrefix(p, 0, OperationType.SEND, socket, b.length);
             IOCTLPacket.writePacketBuffer(p, wOff, b);
-            Agent.CLibrary.INSTANCE.ioctl(0, Agent.IOCTL_CMD, Pointer.nativeValue(p));
+            instance.ioctl(0, Agent.IOCTL_CMD, Pointer.nativeValue(p));
         }
     }
 

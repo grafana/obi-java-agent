@@ -1,4 +1,4 @@
-package io.opentelemetry.obi.java.instrumentations;
+package io.opentelemetry.obi.java.instrumentations.data;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -6,7 +6,6 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import javax.net.ssl.SSLEngine;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.net.InetSocketAddress;
 
 public class SSLStorage {
     public static Method bootExtractMethod = null;
@@ -87,7 +86,7 @@ public class SSLStorage {
     public static Field getBootNettyConnectionField() {
         if (bootNettyConnectionField == null) {
             try {
-                Class<?> sslStorageClass = Class.forName("io.opentelemetry.obi.java.instrumentations.SSLStorage", true, null);
+                Class<?> sslStorageClass = Class.forName("io.opentelemetry.obi.java.instrumentations.data.SSLStorage", true, null);
                 bootNettyConnectionField = sslStorageClass.getDeclaredField("nettyConnection");
             } catch (Exception x) {
                 x.printStackTrace();
@@ -100,7 +99,7 @@ public class SSLStorage {
     public static Field getBootDebugOn() {
         if (bootDebugOn == null) {
             try {
-                Class<?> sslStorageClass = Class.forName("io.opentelemetry.obi.java.instrumentations.SSLStorage", true, null);
+                Class<?> sslStorageClass = Class.forName("io.opentelemetry.obi.java.instrumentations.data.SSLStorage", true, null);
                 bootDebugOn = sslStorageClass.getDeclaredField("debugOn");
             } catch (Exception x) {
                 x.printStackTrace();
