@@ -7,7 +7,13 @@ import java.net.InetAddress;
 import java.net.Socket;
 
 public class ConnectionInfo {
+    private static byte[] empty = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
     private static void writeInetAddress(Pointer mem, int off, InetAddress addr) {
+        if (addr == null) {
+            mem.write(off, empty, 0, empty.length);
+            return;
+        }
         byte[] data = addr.getAddress();
         if (data.length == 16) { // IPv6
             mem.write(off, data, 0, data.length);
