@@ -40,47 +40,12 @@ public class Agent {
     }
 
     private static AgentBuilder builder(Map<String, String> opts, Instrumentation inst) {
-//         ClassFileLocator adviceLocator = new ClassFileLocator.Compound(
-//                 ClassFileLocator.ForClassLoader.ofSystemLoader(),
-//                 ClassFileLocator.ForClassLoader.of(Agent.class.getClassLoader()),
-//                 ClassFileLocator.ForClassLoader.ofPlatformLoader(),
-//                 ClassFileLocator.ForClassLoader.ofBootLoader()
-//         );
-
         AgentBuilder builder = new AgentBuilder.Default()
-                //.with(new AgentBuilder.LocationStrategy.Simple(adviceLocator))
                 .with(new AgentBuilder.LocationStrategy() {
                     @Override
                     public ClassFileLocator classFileLocator(ClassLoader classLoader, JavaModule module) {
                         return ClassFileLocator.ForClassLoader.of(classLoader);
                     }
-//                        Set<ClassLoader> classLoaders = new HashSet<>();
-//                        // Add the provided classLoader
-//                        if (classLoader != null) {
-//                            classLoaders.add(classLoader);
-//                        }
-//                        // Add system, platform, and bootstrap loaders
-//                        classLoaders.add(ClassLoader.getSystemClassLoader());
-//                        classLoaders.add(ClassLoader.getPlatformClassLoader());
-//                        // Bootstrap loader is represented by null
-//                        classLoaders.add(null);
-//
-//                        // Add all class loaders from loaded classes
-//                        for (Class<?> clazz : inst.getAllLoadedClasses()) {
-//                            ClassLoader cl = clazz.getClassLoader();
-//                            if (cl != null) {
-//                                classLoaders.add(cl);
-//                            }
-//                        }
-//
-//                        List<ClassFileLocator> locators = new ArrayList<>();
-//                        for (ClassLoader cl : classLoaders) {
-//                            locators.add(ClassFileLocator.ForClassLoader.of(cl));
-//                        }
-//                        // Optionally add boot loader locator
-//                        locators.add(ClassFileLocator.ForClassLoader.ofBootLoader());
-//
-//                        return new ClassFileLocator.Compound(locators);                    }
                 })
                 .disableClassFormatChanges()
                 .ignore(none())
@@ -225,25 +190,21 @@ public class Agent {
                  ClassFileLocator.ForClassLoader.of(agentClassLoader),
                  ClassFileLocator.ForClassLoader.ofPlatformLoader(),
                  ClassFileLocator.ForClassLoader.ofBootLoader()
-         );
-        // This will pick up all the classes initialised in initClassesThatNeedToBeBootstrapped
-        //try (ClassFileLocator locator = ClassFileLocator.ForClassLoader.of(agentClassLoader)) {
-            for (Class<?> clazz : instrumentation.getAllLoadedClasses()) {
-                //if (clazz.getClassLoader() == agentClassLoader) {
-                    TypeDescription desc = new TypeDescription.ForLoadedType(clazz);
-                    if (desc.getName().startsWith("com.sun.")
-                            || desc.getName().startsWith("io.opentelemetry.obi.")
-                            || desc.getName().startsWith("com.github.benmanes.")
-                    ) {
-                        try {
-                            byte[] bytes = locator.locate(desc.getName()).resolve();
-                            typeMap.put(desc, bytes);
-                        } catch (Throwable ignored) {
-                        }
-                    }
+        );
+
+        for (Class<?> clazz : instrumentation.getAllLoadedClasses()) {
+            TypeDescription desc = new TypeDescription.ForLoadedType(clazz);
+            if (desc.getName().startsWith("com.sun.")
+                    || desc.getName().startsWith("io.opentelemetry.obi.")
+                    || desc.getName().startsWith("com.github.benmanes.")
+            ) {
+                try {
+                    byte[] bytes = locator.locate(desc.getName()).resolve();
+                    typeMap.put(desc, bytes);
+                } catch (Throwable ignored) {
                 }
-//            }
-//        }
+            }
+        }
 
         ClassInjector injector = ClassInjector.UsingInstrumentation.of(tempDir, BOOTSTRAP, instrumentation);
         injector.inject(typeMap);
