@@ -57,7 +57,7 @@ public class ByteBufferExtractor {
     }
 
     public static ByteBuffer srcBufferArray(ByteBuffer src, int len) {
-        int bufSize = Math.min(len, MAX_SIZE);
+        int bufSize = (src == null) ? 0 : Math.min(src.remaining(), Math.min(len, MAX_SIZE));
         ByteBuffer dstBuffer = ByteBuffer.allocate(bufSize);
         if (src != null) {
             int oldPos = src.position();
