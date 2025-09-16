@@ -197,7 +197,7 @@ public class Agent {
 
         for (Class<?> clazz : instrumentation.getAllLoadedClasses()) {
             TypeDescription desc = new TypeDescription.ForLoadedType(clazz);
-            if (desc.getName().startsWith("com.sun.")
+            if (desc.getName().startsWith("com.sun.jna.")
                     || desc.getName().startsWith("io.opentelemetry.obi.")
                     || desc.getName().startsWith("com.github.benmanes.")
             ) {
