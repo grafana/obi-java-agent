@@ -17,7 +17,7 @@ repositories {
 dependencies {
     implementation 'net.bytebuddy:byte-buddy:1.17.6'
     implementation 'net.bytebuddy:byte-buddy-agent:1.17.6'
-    implementation 'net.java.dev.jna:jna:5.17.0'
+    implementation 'net.java.dev.jna:jna:5.18.1'
     implementation 'com.github.ben-manes.caffeine:caffeine:2.9.3'
 
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.13.3'
