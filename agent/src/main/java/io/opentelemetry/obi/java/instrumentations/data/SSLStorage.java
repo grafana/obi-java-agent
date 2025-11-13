@@ -71,6 +71,9 @@ public class SSLStorage {
         bufToBuf.invalidate(encrypted);
     }
 
+    // These boot finder methods are here to help us find the version of the methods/classes that are loaded
+    // on the boot class loader. Since we use multiple class loaders, we need to be able to find a specific version
+    // of the class.
     public static Method getBootExtractMethod() {
         if (bootExtractMethod == null) {
             try {
