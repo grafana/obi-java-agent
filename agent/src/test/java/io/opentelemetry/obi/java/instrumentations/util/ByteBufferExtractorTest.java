@@ -70,6 +70,30 @@ class ByteBufferExtractorTest {
     }
 
     @Test
+    void testFlattenUsedByteBufferArray_MultipleBuffers_OverflowsLast() {
+        ByteBuffer buf1 = ByteBuffer.allocate(3);
+        buf1.put(new byte[] { 1, 2, 3 });
+        ByteBuffer buf2 = ByteBuffer.allocate(ByteBufferExtractor.MAX_SIZE);
+        byte[] buf = new byte[ByteBufferExtractor.MAX_SIZE];
+        for(int i = 0; i < ByteBufferExtractor.MAX_SIZE; i++) {
+            buf[i] = (byte)(i%256);
+        }
+        buf2.put(buf);
+        buf2.position(ByteBufferExtractor.MAX_SIZE);
+        buf2.limit(ByteBufferExtractor.MAX_SIZE); // only bytes 50, 60
+        ByteBuffer[] buffers = new ByteBuffer[] { buf1, buf2 };
+
+        ByteBuffer result = ByteBufferExtractor.flattenUsedByteBufferArray(buffers, 5);
+        assertEquals(3, buf1.position());
+        assertEquals(ByteBufferExtractor.MAX_SIZE, buf2.position());
+
+        result.flip();
+        byte[] out = new byte[5];
+        result.get(out);
+        assertArrayEquals(new byte[] { 1, 2, 3, 0, 1 }, out);
+    }
+
+    @Test
     void testFlattenUsedByteBufferArray_MultipleBuffers_PartialLastBuffer() {
         ByteBuffer buf1 = ByteBuffer.allocate(3);
         buf1.put(new byte[] { 1, 2, 3 });
@@ -232,6 +256,33 @@ class ByteBufferExtractorTest {
         byte[] out = new byte[5];
         result.get(out);
         assertArrayEquals(new byte[] { 10, 20, 30, 50, 60 }, out);
+    }
+
+    @Test
+    void testFlattenFreshByteBufferArray_MultipleBuffers_OverflowsLast() {
+        ByteBuffer buf1 = ByteBuffer.allocate(3);
+        buf1.put(new byte[] { 10, 20, 30 });
+        buf1.flip();
+        ByteBuffer buf2 = ByteBuffer.allocate(ByteBufferExtractor.MAX_SIZE);
+        byte[] buf = new byte[ByteBufferExtractor.MAX_SIZE];
+        for(int i = 0; i < ByteBufferExtractor.MAX_SIZE; i++) {
+            buf[i] = (byte)(i%256);
+        }
+        buf2.put(buf);
+        buf2.position(0);
+        buf2.limit(ByteBufferExtractor.MAX_SIZE); // only bytes 50, 60
+        ByteBuffer[] srcs = new ByteBuffer[] { buf1, buf2 };
+
+        ByteBuffer result = ByteBufferExtractor.flattenFreshByteBufferArray(srcs);
+        assertEquals(0, buf1.position());
+        assertEquals(3, buf1.limit());
+        assertEquals(0, buf2.position());
+        assertEquals(ByteBufferExtractor.MAX_SIZE, buf2.limit());
+
+        result.flip();
+        byte[] out = new byte[5];
+        result.get(out);
+        assertArrayEquals(new byte[] { 10, 20, 30, 0, 1 }, out);
     }
 
     @Test

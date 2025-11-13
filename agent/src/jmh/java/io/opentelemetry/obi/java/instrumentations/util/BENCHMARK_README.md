@@ -63,7 +63,7 @@ ByteBufferExtractorBenchmark.benchmarkFlattenDstByteBufferArray         64      
 ByteBufferExtractorBenchmark.benchmarkFlattenDstByteBufferArray         64        direct  avgt    5  234.567 ± 23.456  ns/op
 ```
 
-Memory Profiling Commands:
+## Memory Profiling Commands:
 
 1. GC Profiler (shows garbage collection stats)
 ```

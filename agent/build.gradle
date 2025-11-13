@@ -1,6 +1,6 @@
 plugins {
     id 'java'
-    id("com.gradleup.shadow") version '8.3.8'
+    id("com.gradleup.shadow") version '8.3.9'
     id 'me.champeau.jmh' version '0.7.2'
 }
 
@@ -15,8 +15,8 @@ repositories {
 }
 
 dependencies {
-    implementation 'net.bytebuddy:byte-buddy:1.17.6'
-    implementation 'net.bytebuddy:byte-buddy-agent:1.17.6'
+    implementation 'net.bytebuddy:byte-buddy:1.17.8'
+    implementation 'net.bytebuddy:byte-buddy-agent:1.17.8'
     implementation 'net.java.dev.jna:jna:5.18.1'
     implementation 'com.github.ben-manes.caffeine:caffeine:2.9.3'
 
