@@ -5,7 +5,7 @@ plugins {
 
 // We need this dependency to load the resource JNA shared libraries
 dependencies {
-    implementation 'net.java.dev.jna:jna:5.17.0'
+    implementation 'net.java.dev.jna:jna:5.18.1'
 }
 
 clean.doFirst {
