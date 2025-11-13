@@ -37,3 +37,4 @@ build/
 .mvn/
 .gradle
 loader/src/main/resources/agent/agent.zip
+/loader/out/production/resources/agent/agent.zip
