@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id("com.gradleup.shadow") version '8.3.8'
+    id 'me.champeau.jmh' version '0.7.2'
 }
 
 group = 'io.opentelemetry.obi'
@@ -28,6 +29,25 @@ dependencies {
 
 test {
     useJUnitPlatform()
+}
+
+String jmhIncludes = findProperty("jmh.includes")
+String jmhProfilers = findProperty("jmh.profilers")
+
+jmh {
+    includes = ['.*Benchmark.*']
+    if (jmhIncludes != null) {
+        includes = [jmhIncludes]
+    }
+    if (jmhProfilers != null) {
+        profilers = jmhProfilers.split(',').collect { it.trim() }
+    }
+    benchmarkMode = ['avgt']
+    timeUnit = 'ns'
+    warmupIterations = 3
+    iterations = 5
+    fork = 1
+    jvmArgs = ['-Xmx2G']
 }
 
 shadowJar {

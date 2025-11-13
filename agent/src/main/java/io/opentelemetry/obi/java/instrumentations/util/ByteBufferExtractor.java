@@ -7,7 +7,7 @@ public class ByteBufferExtractor {
     public static final int MAX_SIZE = 1024;
     public static final int MAX_KEY_SIZE = 64;
 
-    public static ByteBuffer flattenDstByteBufferArray(ByteBuffer[] dsts, int len) {
+    public static ByteBuffer flattenUsedByteBufferArray(ByteBuffer[] dsts, int len) {
         ByteBuffer dstBuffer = ByteBuffer.allocate(Math.min(len, MAX_SIZE));
         if (dsts == null) {
             return dstBuffer;
@@ -15,6 +15,7 @@ public class ByteBufferExtractor {
         int consumed = 0;
         for (int i = 0; i < dsts.length && consumed <= dstBuffer.limit(); i++) {
             int oldPos = dsts[i].position();
+            int oldLimit = dsts[i].limit();
             dsts[i].flip();
 
             if (dsts[i].remaining() <= dstBuffer.remaining()) {
@@ -25,13 +26,14 @@ public class ByteBufferExtractor {
                 dstBuffer.put(slice);
             }
             dsts[i].position(oldPos);
+            dsts[i].limit(oldLimit);
             consumed += oldPos;
         }
 
         return dstBuffer;
     }
 
-    public static ByteBuffer flattenSrcByteBufferArray(ByteBuffer[] srcs) {
+    public static ByteBuffer flattenFreshByteBufferArray(ByteBuffer[] srcs) {
         ByteBuffer dstBuffer = ByteBuffer.allocate(MAX_SIZE);
         if (srcs == null) {
             return dstBuffer;
@@ -56,7 +58,7 @@ public class ByteBufferExtractor {
         return dstBuffer;
     }
 
-    public static ByteBuffer srcBufferArray(ByteBuffer src, int len) {
+    public static ByteBuffer fromFreshBuffer(ByteBuffer src, int len) {
         int bufSize = (src == null) ? 0 : Math.min(src.remaining(), Math.min(len, MAX_SIZE));
         ByteBuffer dstBuffer = ByteBuffer.allocate(bufSize);
         if (src != null) {
@@ -72,7 +74,7 @@ public class ByteBufferExtractor {
         return dstBuffer;
     }
 
-    public static String bufferKey(ByteBuffer buf) {
+    public static String keyFromUsedBuffer(ByteBuffer buf) {
         int oldPosition = buf.position();
         int oldLimit = buf.limit();
 
@@ -87,7 +89,7 @@ public class ByteBufferExtractor {
         return Arrays.toString(bytes);
     }
 
-    public static String srcBufferKey(ByteBuffer buf) {
+    public static String keyFromFreshBuffer(ByteBuffer buf) {
         int oldPosition = buf.position();
         int oldLimit = buf.limit();
 

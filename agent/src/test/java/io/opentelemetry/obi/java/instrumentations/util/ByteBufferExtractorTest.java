@@ -7,27 +7,27 @@ import static org.junit.jupiter.api.Assertions.*;
 class ByteBufferExtractorTest {
 
     @Test
-    void testFlattenDstByteBufferArray_NullInput() {
-        ByteBuffer result = ByteBufferExtractor.flattenDstByteBufferArray(null, 10);
+    void testFlattenUsedByteBufferArray_NullInput() {
+        ByteBuffer result = ByteBufferExtractor.flattenUsedByteBufferArray(null, 10);
         assertEquals(0, result.position());
         assertEquals(Math.min(10, ByteBufferExtractor.MAX_SIZE), result.capacity());
     }
 
     @Test
-    void testFlattenDstByteBufferArray_EmptyArray() {
+    void testFlattenUsedByteBufferArray_EmptyArray() {
         ByteBuffer[] buffers = new ByteBuffer[0];
-        ByteBuffer result = ByteBufferExtractor.flattenDstByteBufferArray(buffers, 10);
+        ByteBuffer result = ByteBufferExtractor.flattenUsedByteBufferArray(buffers, 10);
         assertEquals(0, result.position());
         assertEquals(Math.min(10, ByteBufferExtractor.MAX_SIZE), result.capacity());
     }
 
     @Test
-    void testFlattenDstByteBufferArray_SingleBuffer_FitsExactly() {
+    void testFlattenUsedByteBufferArray_SingleBuffer_FitsExactly() {
         ByteBuffer buf = ByteBuffer.allocate(5);
         buf.put(new byte[] { 1, 2, 3, 4, 5 });
         ByteBuffer[] buffers = new ByteBuffer[] { buf };
 
-        ByteBuffer result = ByteBufferExtractor.flattenDstByteBufferArray(buffers, 5);
+        ByteBuffer result = ByteBufferExtractor.flattenUsedByteBufferArray(buffers, 5);
         assertEquals(5, buf.position()); // original buffer position unchanged
 
         result.flip();
@@ -37,12 +37,12 @@ class ByteBufferExtractorTest {
     }
 
     @Test
-    void testFlattenDstByteBufferArray_SingleBuffer_PartialCopy() {
+    void testFlattenUsedByteBufferArray_SingleBuffer_PartialCopy() {
         ByteBuffer buf = ByteBuffer.allocate(10);
         buf.put(new byte[] { 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 });
         ByteBuffer[] buffers = new ByteBuffer[] { buf };
 
-        ByteBuffer result = ByteBufferExtractor.flattenDstByteBufferArray(buffers, 4);
+        ByteBuffer result = ByteBufferExtractor.flattenUsedByteBufferArray(buffers, 4);
         assertEquals(10, buf.position());
 
         result.flip();
@@ -52,14 +52,14 @@ class ByteBufferExtractorTest {
     }
 
     @Test
-    void testFlattenDstByteBufferArray_MultipleBuffers_ExactFit() {
+    void testFlattenUsedByteBufferArray_MultipleBuffers_ExactFit() {
         ByteBuffer buf1 = ByteBuffer.allocate(3);
         buf1.put(new byte[] { 1, 2, 3 });
         ByteBuffer buf2 = ByteBuffer.allocate(2);
         buf2.put(new byte[] { 4, 5 });
         ByteBuffer[] buffers = new ByteBuffer[] { buf1, buf2 };
 
-        ByteBuffer result = ByteBufferExtractor.flattenDstByteBufferArray(buffers, 5);
+        ByteBuffer result = ByteBufferExtractor.flattenUsedByteBufferArray(buffers, 5);
         assertEquals(3, buf1.position());
         assertEquals(2, buf2.position());
 
@@ -70,13 +70,13 @@ class ByteBufferExtractorTest {
     }
 
     @Test
-    void testFlattenDstByteBufferArray_MultipleBuffers_PartialLastBuffer() {
+    void testFlattenUsedByteBufferArray_MultipleBuffers_PartialLastBuffer() {
         ByteBuffer buf1 = ByteBuffer.allocate(3);
         buf1.put(new byte[] { 1, 2, 3 });
         ByteBuffer buf2 = ByteBuffer.allocate(4);
         buf2.put(new byte[] { 4, 5, 6, 7 });
         ByteBuffer[] buffers = new ByteBuffer[] { buf1, buf2 };
-        ByteBuffer result = ByteBufferExtractor.flattenDstByteBufferArray(buffers, 5);
+        ByteBuffer result = ByteBufferExtractor.flattenUsedByteBufferArray(buffers, 5);
         assertEquals(3, buf1.position());
         assertEquals(4, buf2.position());
 
@@ -87,12 +87,12 @@ class ByteBufferExtractorTest {
     }
 
     @Test
-    void testFlattenDstByteBufferArray_BufferWithNonZeroPosition() {
+    void testFlattenUsedByteBufferArray_BufferWithNonZeroPosition() {
         ByteBuffer buf = ByteBuffer.allocate(6);
         buf.put(new byte[] { 10, 20, 30, 40, 50, 60 });
         buf.position(3); // simulate buffer with position not at 0
         ByteBuffer[] buffers = new ByteBuffer[] { buf };
-        ByteBuffer result = ByteBufferExtractor.flattenDstByteBufferArray(buffers, 3);
+        ByteBuffer result = ByteBufferExtractor.flattenUsedByteBufferArray(buffers, 3);
         assertEquals(3, buf.position()); // original buffer position unchanged
 
         result.flip();
@@ -102,14 +102,14 @@ class ByteBufferExtractorTest {
     }
 
     @Test
-    void testFlattenDstByteBufferArray_LimitGreaterThanLen() {
+    void testFlattenUsedByteBufferArray_LimitGreaterThanLen() {
         ByteBuffer buf1 = ByteBuffer.allocate(10);
         buf1.put(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
         ByteBuffer buf2 = ByteBuffer.allocate(10);
         buf2.put(new byte[] { 11, 12, 13, 14, 15, 16, 17, 18, 19, 20 });
         ByteBuffer[] buffers = new ByteBuffer[] { buf1, buf2 };
 
-        ByteBuffer result = ByteBufferExtractor.flattenDstByteBufferArray(buffers, 12);
+        ByteBuffer result = ByteBufferExtractor.flattenUsedByteBufferArray(buffers, 12);
         assertEquals(10, buf1.position());
         assertEquals(10, buf2.position());
 
@@ -120,13 +120,13 @@ class ByteBufferExtractorTest {
     }
 
     @Test
-    void testFlattenDstByteBufferArray_LenGreaterThanMaxSize() {
+    void testFlattenUsedByteBufferArray_LenGreaterThanMaxSize() {
         ByteBuffer buf = ByteBuffer.allocate(2000);
         for (int i = 0; i < 2000; i++) {
             buf.put((byte) (i % 128));
         }
         ByteBuffer[] buffers = new ByteBuffer[] { buf };
-        ByteBuffer result = ByteBufferExtractor.flattenDstByteBufferArray(buffers, 2000);
+        ByteBuffer result = ByteBufferExtractor.flattenUsedByteBufferArray(buffers, 2000);
         assertEquals(2000, buf.position());
 
         assertEquals(ByteBufferExtractor.MAX_SIZE, result.capacity());
@@ -138,28 +138,28 @@ class ByteBufferExtractorTest {
     }
 
     @Test
-    void testFlattenSrcByteBufferArray_NullInput() {
-        ByteBuffer result = ByteBufferExtractor.flattenSrcByteBufferArray(null);
+    void testFlattenFreshByteBufferArray_NullInput() {
+        ByteBuffer result = ByteBufferExtractor.flattenFreshByteBufferArray(null);
         assertEquals(0, result.position());
         assertEquals(ByteBufferExtractor.MAX_SIZE, result.capacity());
     }
 
     @Test
-    void testFlattenSrcByteBufferArray_EmptyArray() {
+    void testFlattenFreshByteBufferArray_EmptyArray() {
         ByteBuffer[] srcs = new ByteBuffer[0];
-        ByteBuffer result = ByteBufferExtractor.flattenSrcByteBufferArray(srcs);
+        ByteBuffer result = ByteBufferExtractor.flattenFreshByteBufferArray(srcs);
         assertEquals(0, result.position());
         assertEquals(ByteBufferExtractor.MAX_SIZE, result.capacity());
     }
 
     @Test
-    void testFlattenSrcByteBufferArray_SingleBuffer_FullCopy() {
+    void testFlattenFreshByteBufferArray_SingleBuffer_FullCopy() {
         ByteBuffer buf = ByteBuffer.allocate(5);
         buf.put(new byte[] { 1, 2, 3, 4, 5 });
         buf.position(1);
         ByteBuffer[] srcs = new ByteBuffer[] { buf };
 
-        ByteBuffer result = ByteBufferExtractor.flattenSrcByteBufferArray(srcs);
+        ByteBuffer result = ByteBufferExtractor.flattenFreshByteBufferArray(srcs);
         assertEquals(5, buf.limit());
         assertEquals(1, buf.position());
 
@@ -170,7 +170,7 @@ class ByteBufferExtractorTest {
     }
 
     @Test
-    void testFlattenSrcByteBufferArray_SingleBuffer_PartialCopy() {
+    void testFlattenFreshByteBufferArray_SingleBuffer_PartialCopy() {
         ByteBuffer buf = ByteBuffer.allocate(10);
         buf.position(2);
         buf.limit(7);
@@ -179,7 +179,7 @@ class ByteBufferExtractorTest {
         }
         ByteBuffer[] srcs = new ByteBuffer[] { buf };
 
-        ByteBuffer result = ByteBufferExtractor.flattenSrcByteBufferArray(srcs);
+        ByteBuffer result = ByteBufferExtractor.flattenFreshByteBufferArray(srcs);
         assertEquals(2, buf.position());
         assertEquals(7, buf.limit());
 
@@ -190,7 +190,7 @@ class ByteBufferExtractorTest {
     }
 
     @Test
-    void testFlattenSrcByteBufferArray_MultipleBuffers_ExactFit() {
+    void testFlattenFreshByteBufferArray_MultipleBuffers_ExactFit() {
         ByteBuffer buf1 = ByteBuffer.allocate(3);
         buf1.put(new byte[] { 1, 2, 3 });
         buf1.flip();
@@ -199,7 +199,7 @@ class ByteBufferExtractorTest {
         buf2.position(1);
         ByteBuffer[] srcs = new ByteBuffer[] { buf1, buf2 };
 
-        ByteBuffer result = ByteBufferExtractor.flattenSrcByteBufferArray(srcs);
+        ByteBuffer result = ByteBufferExtractor.flattenFreshByteBufferArray(srcs);
         assertEquals(0, buf1.position());
         assertEquals(3, buf1.limit());
         assertEquals(1, buf2.position());
@@ -212,7 +212,7 @@ class ByteBufferExtractorTest {
     }
 
     @Test
-    void testFlattenSrcByteBufferArray_MultipleBuffers_PartialLastBuffer() {
+    void testFlattenFreshByteBufferArray_MultipleBuffers_PartialLastBuffer() {
         ByteBuffer buf1 = ByteBuffer.allocate(3);
         buf1.put(new byte[] { 10, 20, 30 });
         buf1.flip();
@@ -222,7 +222,7 @@ class ByteBufferExtractorTest {
         buf2.limit(3); // only bytes 50, 60
         ByteBuffer[] srcs = new ByteBuffer[] { buf1, buf2 };
 
-        ByteBuffer result = ByteBufferExtractor.flattenSrcByteBufferArray(srcs);
+        ByteBuffer result = ByteBufferExtractor.flattenFreshByteBufferArray(srcs);
         assertEquals(0, buf1.position());
         assertEquals(3, buf1.limit());
         assertEquals(1, buf2.position());
@@ -235,14 +235,14 @@ class ByteBufferExtractorTest {
     }
 
     @Test
-    void testFlattenSrcByteBufferArray_BufferWithNonZeroPosition() {
+    void testFlattenFreshByteBufferArray_BufferWithNonZeroPosition() {
         ByteBuffer buf = ByteBuffer.allocate(6);
         buf.put(new byte[] { 10, 20, 30, 40, 50, 60 });
         buf.position(2);
         buf.limit(5); // bytes 30, 40, 50
         ByteBuffer[] srcs = new ByteBuffer[] { buf };
 
-        ByteBuffer result = ByteBufferExtractor.flattenSrcByteBufferArray(srcs);
+        ByteBuffer result = ByteBufferExtractor.flattenFreshByteBufferArray(srcs);
         assertEquals(2, buf.position());
         assertEquals(5, buf.limit());
 
@@ -253,7 +253,7 @@ class ByteBufferExtractorTest {
     }
 
     @Test
-    void testFlattenSrcByteBufferArray_LimitGreaterThanMaxSize() {
+    void testFlattenFreshByteBufferArray_LimitGreaterThanMaxSize() {
         ByteBuffer buf1 = ByteBuffer.allocate(2000);
         for (int i = 0; i < 2000; i++) {
             buf1.put((byte) (i % 128));
@@ -261,7 +261,7 @@ class ByteBufferExtractorTest {
         buf1.flip();
         ByteBuffer[] srcs = new ByteBuffer[] { buf1 };
 
-        ByteBuffer result = ByteBufferExtractor.flattenSrcByteBufferArray(srcs);
+        ByteBuffer result = ByteBufferExtractor.flattenFreshByteBufferArray(srcs);
         assertEquals(ByteBufferExtractor.MAX_SIZE, result.capacity());
         result.flip();
         for (int i = 0; i < ByteBufferExtractor.MAX_SIZE; i++) {
@@ -272,7 +272,7 @@ class ByteBufferExtractorTest {
     }
 
     @Test
-    void testFlattenSrcByteBufferArray_MultipleBuffers_ExceedMaxSize() {
+    void testFlattenFreshByteBufferArray_MultipleBuffers_ExceedMaxSize() {
         ByteBuffer buf1 = ByteBuffer.allocate(800);
         ByteBuffer buf2 = ByteBuffer.allocate(800);
         for (int i = 0; i < 800; i++) {
@@ -283,7 +283,7 @@ class ByteBufferExtractorTest {
         buf2.flip();
         ByteBuffer[] srcs = new ByteBuffer[] { buf1, buf2 };
 
-        ByteBuffer result = ByteBufferExtractor.flattenSrcByteBufferArray(srcs);
+        ByteBuffer result = ByteBufferExtractor.flattenFreshByteBufferArray(srcs);
         assertEquals(ByteBufferExtractor.MAX_SIZE, result.capacity());
         result.flip();
         for (int i = 1; i < 800; i++) {
@@ -299,16 +299,16 @@ class ByteBufferExtractorTest {
     }
 
     @Test
-    void testSrcBufferArray_NullInput() {
-        ByteBuffer result = ByteBufferExtractor.srcBufferArray(null, 10);
+    void testFromFreshBuffer_NullInput() {
+        ByteBuffer result = ByteBufferExtractor.fromFreshBuffer(null, 10);
         assertEquals(0, result.position());
         assertEquals(0, result.capacity());
     }
 
     @Test
-    void testSrcBufferArray_EmptyBuffer() {
+    void testFromFreshBufferArray_EmptyBuffer() {
         ByteBuffer src = ByteBuffer.allocate(0);
-        ByteBuffer result = ByteBufferExtractor.srcBufferArray(src, 10);
+        ByteBuffer result = ByteBufferExtractor.fromFreshBuffer(src, 10);
         assertEquals(0, result.position());
         assertEquals(0, result.capacity());
         assertEquals(0, src.position());
@@ -316,11 +316,11 @@ class ByteBufferExtractorTest {
     }
 
     @Test
-    void testSrcBufferArray_BufferSmallerThanLen() {
+    void testFromFreshBufferArray_BufferSmallerThanLen() {
         ByteBuffer src = ByteBuffer.allocate(5);
         src.put(new byte[] { 1, 2, 3, 4, 5 });
         src.flip();
-        ByteBuffer result = ByteBufferExtractor.srcBufferArray(src, 10);
+        ByteBuffer result = ByteBufferExtractor.fromFreshBuffer(src, 10);
         result.flip();
         byte[] out = new byte[5];
         result.get(out);
@@ -330,11 +330,11 @@ class ByteBufferExtractorTest {
     }
 
     @Test
-    void testSrcBufferArray_BufferEqualToLen() {
+    void testFromFreshBufferArray_BufferEqualToLen() {
         ByteBuffer src = ByteBuffer.allocate(4);
         src.put(new byte[] { 9, 8, 7, 6 });
         src.flip();
-        ByteBuffer result = ByteBufferExtractor.srcBufferArray(src, 4);
+        ByteBuffer result = ByteBufferExtractor.fromFreshBuffer(src, 4);
         result.flip();
         byte[] out = new byte[4];
         result.get(out);
@@ -344,12 +344,12 @@ class ByteBufferExtractorTest {
     }
 
     @Test
-    void testSrcBufferArray_BufferGreaterThanLen() {
+    void testFromFreshBufferArray_BufferGreaterThanLen() {
         ByteBuffer src = ByteBuffer.allocate(10);
         src.put(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
         src.position(2);
         src.limit(8); // bytes 3,4,5,6,7,8
-        ByteBuffer result = ByteBufferExtractor.srcBufferArray(src, 4);
+        ByteBuffer result = ByteBufferExtractor.fromFreshBuffer(src, 4);
         result.flip();
         byte[] out = new byte[4];
         result.get(out);
@@ -359,13 +359,13 @@ class ByteBufferExtractorTest {
     }
 
     @Test
-    void testSrcBufferArray_LenGreaterThanMaxSize() {
+    void testFromFreshBuffer_LenGreaterThanMaxSize() {
         ByteBuffer src = ByteBuffer.allocate(2000);
         for (int i = 0; i < 2000; i++) {
             src.put((byte) (i % 128));
         }
         src.flip();
-        ByteBuffer result = ByteBufferExtractor.srcBufferArray(src, 2000);
+        ByteBuffer result = ByteBufferExtractor.fromFreshBuffer(src, 2000);
         assertEquals(ByteBufferExtractor.MAX_SIZE, result.capacity());
         result.flip();
         for (int i = 0; i < ByteBufferExtractor.MAX_SIZE; i++) {
@@ -376,12 +376,12 @@ class ByteBufferExtractorTest {
     }
 
     @Test
-    void testSrcBufferArray_BufferWithNonZeroPositionAndLimit() {
+    void testFromFreshBufferArray_BufferWithNonZeroPositionAndLimit() {
         ByteBuffer src = ByteBuffer.allocate(10);
         src.put(new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 });
         src.position(3);
         src.limit(8); // bytes 3,4,5,6,7
-        ByteBuffer result = ByteBufferExtractor.srcBufferArray(src, 10);
+        ByteBuffer result = ByteBufferExtractor.fromFreshBuffer(src, 10);
         result.flip();
         byte[] out = new byte[5];
         result.get(out);
@@ -391,11 +391,11 @@ class ByteBufferExtractorTest {
     }
 
     @Test
-    void testSrcBufferArray_LenZero() {
+    void testFromFreshBuffer_LenZero() {
         ByteBuffer src = ByteBuffer.allocate(5);
         src.put(new byte[] { 1, 2, 3, 4, 5 });
         src.flip();
-        ByteBuffer result = ByteBufferExtractor.srcBufferArray(src, 0);
+        ByteBuffer result = ByteBufferExtractor.fromFreshBuffer(src, 0);
         assertEquals(0, result.capacity());
         assertEquals(0, result.position());
         assertEquals(0, src.position());
@@ -405,7 +405,7 @@ class ByteBufferExtractorTest {
     @Test
     void testBufferKeyEmptyBuffer() {
         ByteBuffer buf = ByteBuffer.allocate(0);
-        assertEquals("[]", ByteBufferExtractor.bufferKey(buf));
+        assertEquals("[]", ByteBufferExtractor.keyFromUsedBuffer(buf));
     }
 
     @Test
@@ -414,7 +414,7 @@ class ByteBufferExtractorTest {
         for (int i = 0; i < 10; i++) buf.put((byte) i);
         // position is 10, so keySize = 10
         String expected = "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]";
-        assertEquals(expected, ByteBufferExtractor.bufferKey(buf));
+        assertEquals(expected, ByteBufferExtractor.keyFromUsedBuffer(buf));
         // After call, position and limit should be unchanged
         assertEquals(10, buf.position());
         assertEquals(10, buf.limit());
@@ -430,7 +430,7 @@ class ByteBufferExtractorTest {
             if (i < ByteBufferExtractor.MAX_KEY_SIZE - 1) sb.append(", ");
         }
         sb.append("]");
-        assertEquals(sb.toString(), ByteBufferExtractor.bufferKey(buf));
+        assertEquals(sb.toString(), ByteBufferExtractor.keyFromUsedBuffer(buf));
         assertEquals(ByteBufferExtractor.MAX_KEY_SIZE, buf.position());
         assertEquals(ByteBufferExtractor.MAX_KEY_SIZE, buf.limit());
     }
@@ -447,7 +447,7 @@ class ByteBufferExtractorTest {
             if (i < ByteBufferExtractor.MAX_KEY_SIZE - 1) sb.append(", ");
         }
         sb.append("]");
-        assertEquals(sb.toString(), ByteBufferExtractor.bufferKey(buf));
+        assertEquals(sb.toString(), ByteBufferExtractor.keyFromUsedBuffer(buf));
         assertEquals(size, buf.position());
         assertEquals(size, buf.limit());
     }
@@ -455,7 +455,7 @@ class ByteBufferExtractorTest {
     @Test
     void testSrcBufferKeyEmptyBuffer() {
         ByteBuffer buf = ByteBuffer.allocate(0);
-        assertEquals("[]", ByteBufferExtractor.srcBufferKey(buf));
+        assertEquals("[]", ByteBufferExtractor.keyFromFreshBuffer(buf));
     }
 
     @Test
@@ -466,7 +466,7 @@ class ByteBufferExtractorTest {
         buf.position(2); // simulate reading 2 bytes
         // remaining = 8, keySize = 8
         String expected = "[12, 13, 14, 15, 16, 17, 18, 19]";
-        assertEquals(expected, ByteBufferExtractor.srcBufferKey(buf));
+        assertEquals(expected, ByteBufferExtractor.keyFromFreshBuffer(buf));
         // After call, position and limit should be unchanged
         assertEquals(2, buf.position());
         assertEquals(10, buf.limit());
@@ -484,7 +484,7 @@ class ByteBufferExtractorTest {
             if (i < ByteBufferExtractor.MAX_KEY_SIZE - 1) sb.append(", ");
         }
         sb.append("]");
-        assertEquals(sb.toString(), ByteBufferExtractor.srcBufferKey(buf));
+        assertEquals(sb.toString(), ByteBufferExtractor.keyFromFreshBuffer(buf));
         assertEquals(5, buf.position());
         assertEquals(ByteBufferExtractor.MAX_KEY_SIZE + 5, buf.limit());
     }
@@ -503,7 +503,7 @@ class ByteBufferExtractorTest {
             if (i < ByteBufferExtractor.MAX_KEY_SIZE - 1) sb.append(", ");
         }
         sb.append("]");
-        assertEquals(sb.toString(), ByteBufferExtractor.srcBufferKey(buf));
+        assertEquals(sb.toString(), ByteBufferExtractor.keyFromFreshBuffer(buf));
         assertEquals(5, buf.position());
         assertEquals(size, buf.limit());
     }

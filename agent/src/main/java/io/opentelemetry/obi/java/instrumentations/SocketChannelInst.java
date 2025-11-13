@@ -98,7 +98,7 @@ public class SocketChannelInst {
             }
 
             src.position(savedPos);
-            String bufKey = ByteBufferExtractor.srcBufferKey(src);
+            String bufKey = ByteBufferExtractor.keyFromFreshBuffer(src);
             src.position(oldPos);
 
             if (SSLStorage.debugOn) {
@@ -156,13 +156,13 @@ public class SocketChannelInst {
                 srcs[i].position(savedSrcPositions[i]);
             }
 
-            ByteBuffer srcBuffer = ByteBufferExtractor.flattenSrcByteBufferArray(srcs);
+            ByteBuffer srcBuffer = ByteBufferExtractor.flattenFreshByteBufferArray(srcs);
 
             for (int i = 0; i < srcs.length; i++) {
                 srcs[i].position(oldSrcPositions[i]);
             }
 
-            String bufKey = ByteBufferExtractor.bufferKey(srcBuffer);
+            String bufKey = ByteBufferExtractor.keyFromUsedBuffer(srcBuffer);
 
             SSLStorage.bufPositions.remove();
 
@@ -207,7 +207,7 @@ public class SocketChannelInst {
             Connection c = new Connection(localSocketAddress.getAddress(), localSocketAddress.getPort(), remoteSocketAddress.getAddress(), remoteSocketAddress.getPort());
 
             if (SSLStorage.connectionUntracked(c)) {
-                String bufKey = ByteBufferExtractor.bufferKey(dst);
+                String bufKey = ByteBufferExtractor.keyFromUsedBuffer(dst);
                 SSLStorage.setConnectionForBuf(bufKey, c);
                 if (SSLStorage.debugOn) {
                     System.out.println("Setting connection for: " + bufKey);
@@ -231,7 +231,7 @@ public class SocketChannelInst {
             Connection c = new Connection(localSocketAddress.getAddress(), localSocketAddress.getPort(), remoteSocketAddress.getAddress(), remoteSocketAddress.getPort());
 
             if (SSLStorage.connectionUntracked(c)) {
-                ByteBuffer dstBuffer = ByteBufferExtractor.flattenDstByteBufferArray(dsts, ByteBufferExtractor.MAX_KEY_SIZE);
+                ByteBuffer dstBuffer = ByteBufferExtractor.flattenUsedByteBufferArray(dsts, ByteBufferExtractor.MAX_KEY_SIZE);
                 String bufKey = Arrays.toString(dstBuffer.array());
                 SSLStorage.setConnectionForBuf(bufKey, c);
 

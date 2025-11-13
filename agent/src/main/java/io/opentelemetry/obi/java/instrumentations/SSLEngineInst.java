@@ -81,7 +81,7 @@ public class SSLEngineInst {
             Connection c = SSLStorage.getConnectionForSession(engine);
 
             if (c == null) {
-                String bufKey = ByteBufferExtractor.bufferKey(src);
+                String bufKey = ByteBufferExtractor.keyFromUsedBuffer(src);
                 c = SSLStorage.getConnectionForBuf(bufKey);
 
                 if (c == null) {
@@ -112,7 +112,7 @@ public class SSLEngineInst {
                 }
 
                 dst.position(savedPos);
-                ByteBuffer dstBuffer = ByteBufferExtractor.srcBufferArray(dst, result.bytesProduced());
+                ByteBuffer dstBuffer = ByteBufferExtractor.fromFreshBuffer(dst, result.bytesProduced());
                 dst.position(oldPos);
 
                 byte[] b = dstBuffer.array();
@@ -157,7 +157,7 @@ public class SSLEngineInst {
             Connection c = SSLStorage.getConnectionForSession(engine);
 
             if (c == null) {
-                ByteBuffer dstBuffer = ByteBufferExtractor.flattenDstByteBufferArray(dsts, ByteBufferExtractor.MAX_KEY_SIZE);
+                ByteBuffer dstBuffer = ByteBufferExtractor.flattenUsedByteBufferArray(dsts, ByteBufferExtractor.MAX_KEY_SIZE);
                 String bufKey = Arrays.toString(dstBuffer.array());
                 c = SSLStorage.getConnectionForBuf(bufKey);
 
@@ -192,7 +192,7 @@ public class SSLEngineInst {
                     dsts[i].position(savedDstPositions[i]);
                 }
 
-                ByteBuffer dstBuffer = ByteBufferExtractor.flattenSrcByteBufferArray(dsts);
+                ByteBuffer dstBuffer = ByteBufferExtractor.flattenFreshByteBufferArray(dsts);
 
                 for (int i = 0; i < dsts.length; i++) {
                     dsts[i].position(oldDstPositions[i]);
@@ -228,7 +228,7 @@ public class SSLEngineInst {
                 return;
             }
 
-            ByteBuffer buf = ByteBufferExtractor.srcBufferArray(src, src.remaining());
+            ByteBuffer buf = ByteBufferExtractor.fromFreshBuffer(src, src.remaining());
             byte[] b = buf.array();
             int len = buf.position();
 
@@ -267,7 +267,7 @@ public class SSLEngineInst {
                     IOCTLPacket.writePacketBuffer(p, wOff, bLen.buf, 0, bLen.len);
                     Agent.CLibrary.INSTANCE.ioctl(0, Agent.IOCTL_CMD, Pointer.nativeValue(p));
                 } else {
-                    String encrypted = ByteBufferExtractor.bufferKey(dst);
+                    String encrypted = ByteBufferExtractor.keyFromUsedBuffer(dst);
                     if (SSLStorage.debugOn) {
                         System.out.println("buf mapping on: " + encrypted);
                     }
@@ -288,7 +288,7 @@ public class SSLEngineInst {
                 return;
             }
 
-            ByteBuffer buf = ByteBufferExtractor.flattenSrcByteBufferArray(srcs);
+            ByteBuffer buf = ByteBufferExtractor.flattenFreshByteBufferArray(srcs);
             byte[] b = buf.array();
             int len = buf.position();
 
@@ -327,7 +327,7 @@ public class SSLEngineInst {
                     IOCTLPacket.writePacketBuffer(p, wOff, bLen.buf, 0, bLen.len);
                     Agent.CLibrary.INSTANCE.ioctl(0, Agent.IOCTL_CMD, Pointer.nativeValue(p));
                 } else {
-                    String encrypted = ByteBufferExtractor.bufferKey(dst);
+                    String encrypted = ByteBufferExtractor.keyFromUsedBuffer(dst);
                     if (SSLStorage.debugOn) {
                         System.out.println("buf array mapping on: " + encrypted);
                     }
