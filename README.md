@@ -76,18 +76,18 @@ A lightweight loader that:
 - Handles agent attachment (both premain and agentmain)
 
 ```
-┌──────────────────┐
-│  Java App        │
-│                  │
-│  ┌───────────┐   │
-│  │ OBI Agent │◄──┼─── Attaches via -javaagent
-│  └─────┬─────┘   │
-│        │         │
-│  ┌─────▼─────┐   │
-│  │Instrumented│  │
-│  │   Code    │   │
-│  └─────┬─────┘   │
-└────────┼─────────┘
+┌───────────────────┐
+│  Java App         │
+│                   │
+│  ┌───────────┐    │
+│  │ OBI Agent │◄───┼─── Attaches via -javaagent
+│  └─────┬─────┘    │
+│        │          │
+│  ┌─────▼──────┐   │
+│  │Instrumented│   │
+│  │   Code     │   │
+│  └─────┬──────┘   │
+└────────┼──────────┘
          │ ioctl
          ▼
    ┌──────────┐
