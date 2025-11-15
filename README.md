@@ -234,8 +234,6 @@ Example results (ns/op, lower is better):
 Benchmark                              (bufferType)  (bufferSize)   Score
 flattenDstByteBufferArray                    heap           64    245.3
 flattenDstByteBufferArray                  direct           64    523.1
-flattenDstByteBufferArrayOptimized           heap           64    243.8
-flattenDstByteBufferArrayOptimized         direct           64    187.4
 ```
 
 ## 🧪 Testing
