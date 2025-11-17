@@ -1,11 +1,37 @@
 plugins {
     id 'java'
-    id("com.gradleup.shadow") version '8.3.9'
+    id 'com.gradleup.shadow' version '8.3.9'
+    id 'com.diffplug.spotless' version '6.25.0'
 }
 
 // We need this dependency to load the resource JNA shared libraries
 dependencies {
     implementation 'net.java.dev.jna:jna:5.18.1'
+}
+
+spotless {
+    java {
+        // Use Google Java Format
+        googleJavaFormat()
+        // Or use Eclipse formatter
+        // eclipse()
+        
+        // Remove unused imports
+        removeUnusedImports()
+        
+        // Trim trailing whitespace
+        trimTrailingWhitespace()
+        
+        // End files with newline
+        endWithNewline()
+        
+        // Target files
+        target 'src/**/*.java'
+    }
+}
+
+tasks.named('spotlessJava') {
+    mustRunAfter(copyAgentShadowJar)
 }
 
 clean.doFirst {
